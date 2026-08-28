@@ -79,7 +79,18 @@ Both are miserable to retrofit and cheap to do upfront.
 ## Weeks
 
 ### Week 1 — Foundations
-CMake + Ninja skeleton, `git init`, golden-file test harness, `SourceManager`, the `Diagnostic` type and its renderer (carets and spans), and the lexer.
+
+~~CMake + Ninja skeleton, `git init`, golden-file test harness~~ — **done, scaffolded.**
+
+Remaining, and **in this order**:
+
+1. **`SourceManager`** — owns the file text; converts byte offsets to line/column.
+2. **`Diagnostic` + its renderer** — carets, spans, secondary labels. Prove it with a *hand-constructed* fake error before any lexer exists.
+3. **The lexer** — now just a source of real spans to feed the renderer.
+
+Doing 2 before 3 is deliberate. If you can render a caret under a hardcoded span, the hard part of the diagnostics work is finished and the lexer becomes an easy win rather than two unfinished things at once.
+
+**Design note — the one thing to get right:** tokens and AST nodes store *byte offsets*, not line/column. A span is two `uint32_t`s: cheap to copy, and every node carries one. Line/column is computed on demand at render time by binary-searching a line-start table built once at load. Computing it eagerly means the lexer counts newlines forever and every token grows a third field.
 
 **Done when:** the lexer tokenises every example file, and a deliberately bad character produces a properly rendered error with a caret in the right column.
 
