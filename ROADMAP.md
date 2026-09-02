@@ -123,11 +123,14 @@ Week 4 is complete: `examples/fib.vx` type-checks clean end to end through `main
 **Done when:** ~~type errors in expressions are caught with accurate spans on the *offending operand*, not on the whole statement.~~
 
 ### Week 5 — Type checker: completion and diagnostics polish
-Function signature checking (arity, argument types, return paths), struct field access, array indexing, and definite-return analysis.
 
-Then the diagnostics pass — this is the week that makes the project memorable. Secondary spans ("declared as `int` here"), `help:` suggestions, and Levenshtein-based "did you mean `count`?" for unknown identifiers.
+~~Function signature checking (arity, argument types, return paths), struct field access, array indexing, and definite-return analysis.~~ — **done.**
 
-**Done when:** every error in `tests/errors/` renders with primary span, secondary span where relevant, and a suggestion where one is possible.
+~~Then the diagnostics pass — this is the week that makes the project memorable. Secondary spans ("declared as `int` here"), `help:` suggestions, and Levenshtein-based "did you mean `count`?" for unknown identifiers.~~ — **done.**
+
+Week 5 is complete: function calls and struct construction (`Point(1, 2)`, positional call syntax reused rather than a new brace-literal grammar) check arity and argument types; `object.field` (new syntax) reads a struct field's type; array literals (`[1, 2, 3]`, new syntax) and a `T[N]` type suffix (also new) make fixed-size arrays constructible and indexable, with a static bounds check when the index is a literal; a function with a declared return type is checked to return on every path (conservative — a loop is never assumed to run); and `tests/errors/` has five examples of the diagnostics polish — secondary labels and Levenshtein-based "did you mean" suggestions — see `include/vex/type_checker.hpp`'s header comment for the full list of design calls, most notably how `print` is resolved with no builtin-declaration syntax at all.
+
+**Done when:** ~~every error in `tests/errors/` renders with primary span, secondary span where relevant, and a suggestion where one is possible.~~
 
 ### Week 6 — Bytecode compiler
 Design the instruction set (stack machine — simpler than a register VM and easier to defend). Constant pool, local slot allocation, and jump patching: emit a jump before you know its target, record the hole, backfill it once you do.

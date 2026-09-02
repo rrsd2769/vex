@@ -1,28 +1,35 @@
 // The type representation -- week 4 of ROADMAP.md.
 #pragma once
 
+#include <cstdint>
+#include <memory>
 #include <string>
 
 namespace vex {
 
 // Unknown is a checker-internal sentinel, never a real value's type: it
-// means "already reported, or not checkable yet this week" (CallExpr and
-// IndexExpr type as Unknown for now -- see type_checker.hpp). It never
-// itself triggers a mismatch diagnostic, so one bad or not-yet-checkable
-// subexpression doesn't cascade into a wall of downstream errors, the same
-// "error, don't cascade" call the parser makes returning nullptr.
+// means "already reported, or not checkable" (see type_checker.hpp). It
+// never itself triggers a mismatch diagnostic, so one bad or
+// not-yet-checkable subexpression doesn't cascade into a wall of downstream
+// errors, the same "error, don't cascade" call the parser makes returning
+// nullptr.
 //
 // Void is likewise never a value's type -- only a function's declared (or
 // absent) return type, used to check `return;` vs `return expr;` against
 // it.
-enum class TypeKind { Int, Float, Bool, String, Struct, Void, Unknown };
+//
+// Array is week 5's addition, for fixed-size arrays (`int[5]`).
+enum class TypeKind { Int, Float, Bool, String, Struct, Array, Void, Unknown };
 
 struct Type {
     TypeKind kind;
-    std::string struct_name;  // meaningful only when kind == TypeKind::Struct
+    std::string struct_name;              // meaningful only when kind == TypeKind::Struct
+    std::shared_ptr<Type> element_type;    // meaningful only when kind == TypeKind::Array
+    std::uint32_t array_size = 0;          // meaningful only when kind == TypeKind::Array
 
     static Type primitive(TypeKind kind);
     static Type make_struct(std::string name);
+    static Type make_array(Type element, std::uint32_t size);
     static Type unknown();
 
     bool is_numeric() const;

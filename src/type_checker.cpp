@@ -1,21 +1,117 @@
 #include "vex/type_checker.hpp"
 
+#include <algorithm>
+#include <vector>
+
 namespace vex {
+
+namespace {
+
+// Levenshtein edit distance, for "did you mean `count`?" suggestions.
+// Classic O(n*m) DP over two rows -- these are identifier-length strings,
+// not a hot path.
+std::size_t edit_distance(const std::string& a, const std::string& b) {
+    std::vector<std::size_t> prev(b.size() + 1), curr(b.size() + 1);
+    for (std::size_t j = 0; j <= b.size(); ++j) prev[j] = j;
+
+    for (std::size_t i = 1; i <= a.size(); ++i) {
+        curr[0] = i;
+        for (std::size_t j = 1; j <= b.size(); ++j) {
+            std::size_t cost = a[i - 1] == b[j - 1] ? 0 : 1;
+            curr[j] = std::min({prev[j] + 1, curr[j - 1] + 1, prev[j - 1] + cost});
+        }
+        std::swap(prev, curr);
+    }
+    return prev[b.size()];
+}
+
+// Nearest candidate to `name` within a distance threshold that scales with
+// its length -- a one- or two-character typo on a short identifier should
+// still match, but a wildly different name shouldn't suggest something
+// unrelated just because the candidate list is long.
+std::optional<std::string> closest_match(const std::string& name, const std::vector<std::string>& candidates) {
+    std::optional<std::string> best;
+    std::size_t best_distance = 0;
+    std::size_t threshold = name.size() <= 3 ? 1 : (name.size() <= 6 ? 2 : 3);
+
+    for (const std::string& candidate : candidates) {
+        if (candidate == name) continue;  // exact match belongs to a real resolution, not a typo
+        std::size_t distance = edit_distance(name, candidate);
+        if (distance <= threshold && (!best || distance < best_distance)) {
+            best = candidate;
+            best_distance = distance;
+        }
+    }
+    return best;
+}
+
+// Definite-return analysis (week 5): does every path through `stmt`/`block`
+// end in a `return`? Conservative on purpose -- a `while`/`for` loop is
+// never assumed to run at least once (no loop-bound analysis), so a
+// function that only returns inside one is still flagged as not returning
+// on every path. An `if` counts only when it has an `else` and both
+// branches always return; a bare `if` can always fall through.
+bool block_always_returns(const Block& block);
+
+bool stmt_always_returns(const Stmt& stmt) {
+    if (std::get_if<ReturnStmt>(&stmt.node)) return true;
+    if (const auto* n = std::get_if<IfStmt>(&stmt.node)) {
+        return n->else_block.has_value() && block_always_returns(n->then_block) &&
+               block_always_returns(*n->else_block);
+    }
+    return false;
+}
+
+bool block_always_returns(const Block& block) {
+    for (const StmtPtr& stmt : block.statements) {
+        if (stmt_always_returns(*stmt)) return true;
+    }
+    return false;
+}
+
+// The one builtin this language has -- see type_checker.hpp's header
+// comment for why it's special-cased here instead of going through
+// functions_.
+constexpr const char* kBuiltinPrint = "print";
+
+}  // namespace
 
 TypeChecker::TypeChecker(const Program& program) : program_(program) {}
 
 void TypeChecker::error(const Span& span, std::string message, std::string label) {
+    error(span, std::move(message), std::move(label), {});
+}
+
+void TypeChecker::error(const Span& span, std::string message, std::string label, std::vector<Label> secondary) {
     diagnostics_.push_back(Diagnostic{
         Severity::Error,
         std::move(message),
         Label{span, std::move(label)},
-        {},
+        std::move(secondary),
         std::nullopt,
     });
 }
 
+void TypeChecker::error_with_suggestion(const Span& span, std::string message, std::string label,
+                                         const std::string& near_name, const std::vector<std::string>& candidates,
+                                         std::vector<Label> secondary) {
+    std::optional<std::string> suggestion = closest_match(near_name, candidates);
+    Diagnostic diagnostic{
+        Severity::Error,
+        std::move(message),
+        Label{span, std::move(label)},
+        std::move(secondary),
+        std::nullopt,
+    };
+    if (suggestion) {
+        diagnostic.suggestion = Suggestion{"did you mean `" + *suggestion + "`?", span, *suggestion};
+    }
+    diagnostics_.push_back(std::move(diagnostic));
+}
+
 void TypeChecker::check() {
     register_structs();
+    register_functions();
     for (const Item& item : program_.items) {
         if (const auto* st = std::get_if<StructDecl>(&item.node)) {
             check_struct(*st);
@@ -31,27 +127,63 @@ void TypeChecker::check() {
 void TypeChecker::register_structs() {
     for (const Item& item : program_.items) {
         if (const auto* st = std::get_if<StructDecl>(&item.node)) {
+            if (auto it = item_spans_.find(st->name); it != item_spans_.end()) {
+                error(item.span, "redeclaration of `" + st->name + "`", "already declared",
+                      {Label{it->second, "first declared here"}});
+                continue;
+            }
             structs_[st->name] = st;
+            item_spans_[st->name] = item.span;
+        }
+    }
+}
+
+void TypeChecker::register_functions() {
+    for (const Item& item : program_.items) {
+        if (const auto* fn = std::get_if<FunctionDecl>(&item.node)) {
+            if (auto it = item_spans_.find(fn->name); it != item_spans_.end()) {
+                error(item.span, "redeclaration of `" + fn->name + "`", "already declared",
+                      {Label{it->second, "first declared here"}});
+                continue;
+            }
+            functions_[fn->name] = fn;
+            item_spans_[fn->name] = item.span;
         }
     }
 }
 
 Type TypeChecker::resolve_type_ref(const TypeRef& ref) {
-    if (ref.name == "int") return Type::primitive(TypeKind::Int);
-    if (ref.name == "float") return Type::primitive(TypeKind::Float);
-    if (ref.name == "bool") return Type::primitive(TypeKind::Bool);
-    if (ref.name == "string") return Type::primitive(TypeKind::String);
+    Type base = Type::unknown();
+    bool found = true;
 
-    if (structs_.contains(ref.name)) return Type::make_struct(ref.name);
+    if (ref.name == "int") {
+        base = Type::primitive(TypeKind::Int);
+    } else if (ref.name == "float") {
+        base = Type::primitive(TypeKind::Float);
+    } else if (ref.name == "bool") {
+        base = Type::primitive(TypeKind::Bool);
+    } else if (ref.name == "string") {
+        base = Type::primitive(TypeKind::String);
+    } else if (structs_.contains(ref.name)) {
+        base = Type::make_struct(ref.name);
+    } else {
+        found = false;
+    }
 
-    error(ref.span, "unknown type `" + ref.name + "`", "no such type");
-    return Type::unknown();
+    if (!found) {
+        std::vector<std::string> candidates{"int", "float", "bool", "string"};
+        for (const auto& [name, decl] : structs_) candidates.push_back(name);
+        error_with_suggestion(ref.span, "unknown type `" + ref.name + "`", "no such type", ref.name, candidates);
+        return Type::unknown();
+    }
+
+    return ref.array_size ? Type::make_array(std::move(base), *ref.array_size) : base;
 }
 
 void TypeChecker::check_struct(const StructDecl& st) {
-    // Just resolving each field's TypeRef is enough to catch a typo'd type
-    // name -- validating field *access* (`.field` on an expression) is
-    // week 5 (ROADMAP.md).
+    // Resolving each field's TypeRef is enough to catch a typo'd type name.
+    // Field *access* on a value of this struct type is checked in
+    // check_field_access(), not here.
     for (const Field& field : st.fields) {
         resolve_type_ref(field.type);
     }
@@ -72,6 +204,14 @@ void TypeChecker::check_function(const FunctionDecl& fn) {
     }
 
     check_block(fn.body, fn_scope);
+
+    if (fn.return_type && !block_always_returns(fn.body)) {
+        error(fn.body.span, "function `" + fn.name + "` doesn't return a value on all code paths",
+              "not every path through this body returns",
+              {Label{fn.return_type->span, "expected because the return type is declared `" +
+                                                to_string(resolve_type_ref(*fn.return_type)) + "` here"}});
+    }
+
     current_function_ = nullptr;
 }
 
@@ -128,7 +268,8 @@ void TypeChecker::check_var_decl(const VarDecl& decl, const Span& stmt_span, Sco
             error(decl.init->span,
                   "cannot assign value of type `" + to_string(init_type) + "` to variable of type `" +
                       to_string(declared_type) + "`",
-                  "this is `" + to_string(init_type) + "`");
+                  "this is `" + to_string(init_type) + "`",
+                  {Label{decl.type->span, "declared as `" + to_string(declared_type) + "` here"}});
         }
     }
 
@@ -137,35 +278,30 @@ void TypeChecker::check_var_decl(const VarDecl& decl, const Span& stmt_span, Sco
     }
 }
 
+const Symbol* TypeChecker::assignment_root(const Expr& target, Scope& scope) {
+    if (const auto* ident = std::get_if<Identifier>(&target.node)) return scope.resolve(ident->name);
+    if (const auto* field = std::get_if<FieldAccessExpr>(&target.node)) return assignment_root(*field->object, scope);
+    if (const auto* index = std::get_if<IndexExpr>(&target.node)) return assignment_root(*index->object, scope);
+    return nullptr;
+}
+
 void TypeChecker::check_assign(const AssignStmt& stmt, Scope& scope) {
     Type value_type = check_expr(*stmt.value, scope);
+    Type target_type = check_expr(*stmt.target, scope);
 
-    const auto* ident = std::get_if<Identifier>(&stmt.target->node);
-    if (!ident) {
-        // Index-expression targets (`arr[i] = x`) aren't checkable yet --
-        // array indexing's type rules are week 5 (ROADMAP.md). Still walk
-        // the target so a bad subexpression inside it is still caught.
-        check_expr(*stmt.target, scope);
-        return;
+    const Symbol* root = assignment_root(*stmt.target, scope);
+    if (root && !root->is_mutable) {
+        error(stmt.target->span, "cannot assign to immutable variable `" + root->name + "`",
+              "declared with `let`, not `var`", {Label{root->decl_span, "declared here"}});
     }
 
-    const Symbol* symbol = scope.resolve(ident->name);
-    if (!symbol) {
-        error(stmt.target->span, "undefined variable `" + ident->name + "`", "not found in this scope");
-        return;
-    }
-
-    if (!symbol->is_mutable) {
-        error(stmt.target->span, "cannot assign to immutable variable `" + ident->name + "`",
-              "declared with `let`, not `var`");
-    }
-
-    if (symbol->type.kind != TypeKind::Unknown && value_type.kind != TypeKind::Unknown &&
-        symbol->type != value_type) {
+    if (target_type.kind != TypeKind::Unknown && value_type.kind != TypeKind::Unknown && target_type != value_type) {
+        std::vector<Label> secondary;
+        if (root) secondary.push_back(Label{root->decl_span, "declared as `" + to_string(target_type) + "` here"});
         error(stmt.value->span,
               "cannot assign value of type `" + to_string(value_type) + "` to variable of type `" +
-                  to_string(symbol->type) + "`",
-              "this is `" + to_string(value_type) + "`");
+                  to_string(target_type) + "`",
+              "this is `" + to_string(value_type) + "`", std::move(secondary));
     }
 }
 
@@ -230,10 +366,15 @@ void TypeChecker::check_return(const ReturnStmt& stmt, const Span& stmt_span, Sc
     }
 
     if (actual.kind != TypeKind::Unknown && actual != expected) {
+        std::vector<Label> secondary;
+        if (current_function_->return_type) {
+            secondary.push_back(
+                Label{current_function_->return_type->span, "return type declared as `" + to_string(expected) + "` here"});
+        }
         error(stmt.value->span,
               "cannot return value of type `" + to_string(actual) + "` from function returning `" +
                   to_string(expected) + "`",
-              "this is `" + to_string(actual) + "`");
+              "this is `" + to_string(actual) + "`", std::move(secondary));
     }
 }
 
@@ -246,15 +387,18 @@ Type TypeChecker::check_expr(const Expr& expr, Scope& scope) {
     if (const auto* n = std::get_if<Identifier>(&expr.node)) {
         const Symbol* symbol = scope.resolve(n->name);
         if (!symbol) {
-            error(expr.span, "undefined variable `" + n->name + "`", "not found in this scope");
+            error_with_suggestion(expr.span, "undefined variable `" + n->name + "`", "not found in this scope",
+                                   n->name, scope.visible_names());
             return Type::unknown();
         }
         return symbol->type;
     }
     if (const auto* n = std::get_if<UnaryExpr>(&expr.node)) return check_unary(*n, scope);
     if (const auto* n = std::get_if<BinaryExpr>(&expr.node)) return check_binary(*n, scope);
-    if (const auto* n = std::get_if<CallExpr>(&expr.node)) return check_call(*n, scope);
+    if (const auto* n = std::get_if<CallExpr>(&expr.node)) return check_call(*n, expr.span, scope);
     if (const auto* n = std::get_if<IndexExpr>(&expr.node)) return check_index(*n, scope);
+    if (const auto* n = std::get_if<FieldAccessExpr>(&expr.node)) return check_field_access(*n, scope);
+    if (const auto* n = std::get_if<ArrayLiteral>(&expr.node)) return check_array_literal(*n, expr.span, scope);
 
     return Type::unknown();  // unreachable -- every ExprNode alternative is handled above
 }
@@ -359,21 +503,176 @@ Type TypeChecker::check_binary(const BinaryExpr& node, Scope& scope) {
     }
 }
 
-Type TypeChecker::check_call(const CallExpr& node, Scope& scope) {
-    // The callee is deliberately not resolved or type-checked at all: there
-    // is no function symbol table yet, so treating `print` or `fib` here as
-    // an undefined *variable* would be wrong. Arguments are still walked so
-    // a type error nested inside one is still caught.
-    for (const ExprPtr& arg : node.args) {
-        check_expr(*arg, scope);
+Type TypeChecker::check_call(const CallExpr& node, const Span& call_span, Scope& scope) {
+    const auto* callee = std::get_if<Identifier>(&node.callee->node);
+    if (!callee) {
+        // The language has no first-class functions -- a computed callee
+        // (which the grammar allows, e.g. `(f)(1)`, but nothing in the
+        // language can ever produce) can't be resolved against
+        // functions_/structs_ by name. Walk it and the arguments for nested
+        // errors and leave the call itself unchecked, the same fallback
+        // week 4 used for every call before this week.
+        check_expr(*node.callee, scope);
+        for (const ExprPtr& arg : node.args) check_expr(*arg, scope);
+        return Type::unknown();
     }
+
+    const std::string& name = callee->name;
+    if (name == kBuiltinPrint) return check_call_to_builtin(node, call_span, scope);
+    if (auto it = functions_.find(name); it != functions_.end()) return check_call_to_function(*it->second, node, call_span, scope);
+    if (auto it = structs_.find(name); it != structs_.end()) return check_call_to_struct(*it->second, node, call_span, scope);
+
+    for (const ExprPtr& arg : node.args) check_expr(*arg, scope);
+
+    std::vector<std::string> candidates{kBuiltinPrint};
+    for (const auto& [fn_name, decl] : functions_) candidates.push_back(fn_name);
+    for (const auto& [st_name, decl] : structs_) candidates.push_back(st_name);
+    error_with_suggestion(node.callee->span, "undefined function `" + name + "`", "not found", name, candidates);
     return Type::unknown();
 }
 
+Type TypeChecker::check_call_to_builtin(const CallExpr& node, const Span& call_span, Scope& scope) {
+    if (node.args.empty()) {
+        error(call_span, "`print` expects at least one argument", "called with no arguments");
+    }
+    for (const ExprPtr& arg : node.args) check_expr(*arg, scope);
+    return Type::primitive(TypeKind::Void);
+}
+
+Type TypeChecker::check_call_to_function(const FunctionDecl& fn, const CallExpr& node, const Span& call_span, Scope& scope) {
+    if (node.args.size() != fn.params.size()) {
+        error(call_span,
+              "function `" + fn.name + "` expects " + std::to_string(fn.params.size()) + " argument(s), found " +
+                  std::to_string(node.args.size()),
+              "wrong number of arguments");
+    }
+
+    std::size_t checked = std::min(node.args.size(), fn.params.size());
+    for (std::size_t i = 0; i < checked; ++i) {
+        Type arg_type = check_expr(*node.args[i], scope);
+        Type param_type = resolve_type_ref(fn.params[i].type);
+        if (arg_type.kind != TypeKind::Unknown && param_type.kind != TypeKind::Unknown && arg_type != param_type) {
+            error(node.args[i]->span,
+                  "argument " + std::to_string(i + 1) + " to `" + fn.name + "` should be `" + to_string(param_type) +
+                      "`, found `" + to_string(arg_type) + "`",
+                  "this is `" + to_string(arg_type) + "`",
+                  {Label{fn.params[i].type.span, "parameter declared as `" + to_string(param_type) + "` here"}});
+        }
+    }
+    // Extra arguments beyond the declared arity are still walked, so a type
+    // error nested inside one is still caught even though the arity
+    // mismatch was already reported above.
+    for (std::size_t i = checked; i < node.args.size(); ++i) check_expr(*node.args[i], scope);
+
+    return fn.return_type ? resolve_type_ref(*fn.return_type) : Type::primitive(TypeKind::Void);
+}
+
+Type TypeChecker::check_call_to_struct(const StructDecl& st, const CallExpr& node, const Span& call_span, Scope& scope) {
+    if (node.args.size() != st.fields.size()) {
+        error(call_span,
+              "`" + st.name + "` has " + std::to_string(st.fields.size()) + " field(s), found " +
+                  std::to_string(node.args.size()) + " argument(s)",
+              "wrong number of arguments");
+    }
+
+    std::size_t checked = std::min(node.args.size(), st.fields.size());
+    for (std::size_t i = 0; i < checked; ++i) {
+        Type arg_type = check_expr(*node.args[i], scope);
+        Type field_type = resolve_type_ref(st.fields[i].type);
+        if (arg_type.kind != TypeKind::Unknown && field_type.kind != TypeKind::Unknown && arg_type != field_type) {
+            error(node.args[i]->span,
+                  "field `" + st.fields[i].name + "` of `" + st.name + "` should be `" + to_string(field_type) +
+                      "`, found `" + to_string(arg_type) + "`",
+                  "this is `" + to_string(arg_type) + "`",
+                  {Label{st.fields[i].type.span, "field declared as `" + to_string(field_type) + "` here"}});
+        }
+    }
+    for (std::size_t i = checked; i < node.args.size(); ++i) check_expr(*node.args[i], scope);
+
+    return Type::make_struct(st.name);
+}
+
 Type TypeChecker::check_index(const IndexExpr& node, Scope& scope) {
-    check_expr(*node.object, scope);
-    check_expr(*node.index, scope);
+    Type object_type = check_expr(*node.object, scope);
+    Type index_type = check_expr(*node.index, scope);
+    Type int_type = Type::primitive(TypeKind::Int);
+
+    if (index_type.kind != TypeKind::Unknown && index_type != int_type) {
+        error(node.index->span, "array index must be of type `int`, found `" + to_string(index_type) + "`",
+              "this is `" + to_string(index_type) + "`");
+    }
+
+    if (object_type.kind == TypeKind::Unknown) return Type::unknown();
+    if (object_type.kind != TypeKind::Array) {
+        error(node.object->span, "cannot index into type `" + to_string(object_type) + "`",
+              "this is `" + to_string(object_type) + "`");
+        return Type::unknown();
+    }
+
+    // A literal index is known at compile time, so its bound can be too --
+    // a cheap, worthwhile check now that array size is part of the type.
+    if (const auto* literal = std::get_if<IntLiteral>(&node.index->node)) {
+        if (literal->value < 0 || static_cast<std::uint64_t>(literal->value) >= object_type.array_size) {
+            error(node.index->span,
+                  "index " + std::to_string(literal->value) + " out of bounds for array of size " +
+                      std::to_string(object_type.array_size),
+                  "out of bounds");
+        }
+    }
+
+    return *object_type.element_type;
+}
+
+Type TypeChecker::check_field_access(const FieldAccessExpr& node, Scope& scope) {
+    Type object_type = check_expr(*node.object, scope);
+    if (object_type.kind == TypeKind::Unknown) return Type::unknown();
+
+    if (object_type.kind != TypeKind::Struct) {
+        error(node.field_span, "cannot access field `" + node.field + "` on type `" + to_string(object_type) + "`",
+              "this is `" + to_string(object_type) + "`");
+        return Type::unknown();
+    }
+
+    const StructDecl& st = *structs_.at(object_type.struct_name);
+    for (const Field& field : st.fields) {
+        if (field.name == node.field) return resolve_type_ref(field.type);
+    }
+
+    std::vector<std::string> candidates;
+    for (const Field& field : st.fields) candidates.push_back(field.name);
+    std::vector<Label> secondary;
+    if (auto it = item_spans_.find(st.name); it != item_spans_.end()) {
+        secondary.push_back(Label{it->second, "struct `" + st.name + "` declared here"});
+    }
+    error_with_suggestion(node.field_span, "no field `" + node.field + "` on struct `" + st.name + "`", "no such field",
+                           node.field, candidates, std::move(secondary));
     return Type::unknown();
+}
+
+Type TypeChecker::check_array_literal(const ArrayLiteral& node, const Span& array_span, Scope& scope) {
+    if (node.elements.empty()) {
+        // An empty array literal has no element to infer a type from, and
+        // this language has no explicit `T[]` empty-array syntax. Report it
+        // once here rather than letting every downstream use see Unknown
+        // with no explanation.
+        error(array_span, "cannot infer the element type of an empty array literal", "empty array literal");
+        return Type::unknown();
+    }
+
+    Type element_type = check_expr(*node.elements[0], scope);
+    for (std::size_t i = 1; i < node.elements.size(); ++i) {
+        Type this_type = check_expr(*node.elements[i], scope);
+        if (element_type.kind != TypeKind::Unknown && this_type.kind != TypeKind::Unknown &&
+            this_type != element_type) {
+            error(node.elements[i]->span,
+                  "array element should be `" + to_string(element_type) + "`, found `" + to_string(this_type) + "`",
+                  "this is `" + to_string(this_type) + "`",
+                  {Label{node.elements[0]->span, "element type inferred as `" + to_string(element_type) + "` here"}});
+        }
+    }
+
+    if (element_type.kind == TypeKind::Unknown) return Type::unknown();
+    return Type::make_array(element_type, static_cast<std::uint32_t>(node.elements.size()));
 }
 
 }  // namespace vex

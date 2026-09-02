@@ -84,12 +84,21 @@ _Avoid_: environment, frame, context
 **Type**:
 What a Symbol or an expression's value is checked against: one of the
 primitive types (`int`, `float`, `bool`, `string`), a struct referenced by
-name, or the checker-internal `Unknown` sentinel meaning "already reported,
-or not yet checkable" -- never a real value's type, and never itself the
-source of a mismatch diagnostic, so one bad subexpression doesn't cascade
-into a wall of downstream errors.
+name, a fixed-size array of an element Type (`int[5]`), the `Void`
+sentinel (only ever a function's declared-or-absent return type, never a
+value's own type), or the checker-internal `Unknown` sentinel meaning
+"already reported, or not checkable" -- never a real value's type, and
+never itself the source of a mismatch diagnostic, so one bad subexpression
+doesn't cascade into a wall of downstream errors.
 _Avoid_: kind (for this meaning -- TokenKind and ExprNode's variant are
 unrelated "kinds")
+
+**Builtin**:
+A callable the language provides without a `fn` declaration -- currently
+just `print`. Resolved by name in the type checker before Symbol/Scope
+lookup or the function table, since there's no declaration syntax that
+could put it in either.
+_Avoid_: intrinsic, native function
 
 ## Runtime
 

@@ -1,0 +1,11 @@
+// Not every path through classify() returns -- the else-less if falls
+// through with no value.
+fn classify(n: int) -> int {
+    if n < 0 {
+        return -1;
+    }
+}
+
+fn main() {
+    classify(5);
+}

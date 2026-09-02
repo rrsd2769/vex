@@ -2,6 +2,7 @@
 // Builds on the expression AST in ast.hpp.
 #pragma once
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <string>
@@ -20,9 +21,13 @@ using StmtPtr = std::unique_ptr<Stmt>;
 // production is just an identifier either way (`int`, `Point`, ...);
 // telling a primitive from a struct name is the type checker's job
 // (week 4), not the parser's.
+//
+// array_size is week 5's addition for fixed-size arrays: `int[5]` parses as
+// name "int" with array_size 5. Absent means the type isn't an array.
 struct TypeRef {
     std::string name;
     Span span;
+    std::optional<std::uint32_t> array_size;
 };
 
 struct Block {

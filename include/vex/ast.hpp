@@ -61,8 +61,23 @@ struct IndexExpr {
     ExprPtr index;
 };
 
+// `object.field` -- week 5. field_span covers just the field name, separate
+// from the whole expression's span, so a "no such field" diagnostic can
+// underline `field` rather than all of `object.field`.
+struct FieldAccessExpr {
+    ExprPtr object;
+    std::string field;
+    Span field_span;
+};
+
+// `[e1, e2, ...]` -- week 5, added alongside array indexing so a fixed-size
+// array value can actually be constructed to index into.
+struct ArrayLiteral {
+    std::vector<ExprPtr> elements;
+};
+
 using ExprNode = std::variant<IntLiteral, FloatLiteral, BoolLiteral, StringLiteral, Identifier, UnaryExpr,
-                               BinaryExpr, CallExpr, IndexExpr>;
+                               BinaryExpr, CallExpr, IndexExpr, FieldAccessExpr, ArrayLiteral>;
 
 // One node in the expression tree. Grouping parens (`(expr)`) do not get
 // their own node -- they only ever affect which shape the parser builds,

@@ -1,0 +1,5 @@
+// A typo'd variable name -- the checker should suggest the declared one.
+fn main() {
+    let count = 1;
+    let x = counnt;
+}

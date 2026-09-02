@@ -1,0 +1,5 @@
+// A literal index known at compile time to be out of bounds.
+fn main() {
+    var scores = [10, 20, 30];
+    var x = scores[5];
+}

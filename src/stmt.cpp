@@ -14,8 +14,12 @@ void dump_block(const Block& block, std::ostringstream& out) {
     out << ')';
 }
 
-const char* type_name_or_placeholder(const std::optional<TypeRef>& type) {
-    return type ? type->name.c_str() : "_";
+std::string type_ref_name(const TypeRef& type) {
+    return type.array_size ? type.name + "[" + std::to_string(*type.array_size) + "]" : type.name;
+}
+
+std::string type_name_or_placeholder(const std::optional<TypeRef>& type) {
+    return type ? type_ref_name(*type) : "_";
 }
 
 struct StmtDumpVisitor {
@@ -75,7 +79,7 @@ std::string dump_item(const Item& item) {
         out << "(fn " << fn->name << " (";
         for (std::size_t i = 0; i < fn->params.size(); ++i) {
             if (i > 0) out << ' ';
-            out << '(' << fn->params[i].name << ' ' << fn->params[i].type.name << ')';
+            out << '(' << fn->params[i].name << ' ' << type_ref_name(fn->params[i].type) << ')';
         }
         out << ") " << type_name_or_placeholder(fn->return_type) << ' ';
         dump_block(fn->body, out);
@@ -84,7 +88,7 @@ std::string dump_item(const Item& item) {
         const auto& st = std::get<StructDecl>(item.node);
         out << "(struct " << st.name;
         for (const Field& field : st.fields) {
-            out << " (" << field.name << ' ' << field.type.name << ')';
+            out << " (" << field.name << ' ' << type_ref_name(field.type) << ')';
         }
         out << ')';
     }

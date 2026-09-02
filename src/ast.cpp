@@ -75,6 +75,21 @@ struct DumpVisitor {
         dump(*n.index, out);
         out << ')';
     }
+
+    void operator()(const FieldAccessExpr& n) const {
+        out << "(field ";
+        dump(*n.object, out);
+        out << ' ' << n.field << ')';
+    }
+
+    void operator()(const ArrayLiteral& n) const {
+        out << "(array";
+        for (const ExprPtr& elem : n.elements) {
+            out << ' ';
+            dump(*elem, out);
+        }
+        out << ')';
+    }
 };
 
 void dump(const Expr& expr, std::ostringstream& out) { std::visit(DumpVisitor{out}, expr.node); }

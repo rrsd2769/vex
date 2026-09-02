@@ -40,6 +40,7 @@ private:
     ExprPtr parse_unary();
     ExprPtr parse_postfix();
     ExprPtr parse_primary();
+    ExprPtr parse_array_literal();
 
     ExprPtr make_int_literal(const Token& tok);
     ExprPtr make_float_literal(const Token& tok);

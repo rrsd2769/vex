@@ -1,0 +1,7 @@
+error: no field `zz` on struct `Point`
+  --> tests/errors/unknown_field.vx:7:15
+  |
+3 | struct Point { x: int, y: int }
+  | ------------------------------- struct `Point` declared here
+7 |     var z = p.zz;
+  |               ^^ no such field

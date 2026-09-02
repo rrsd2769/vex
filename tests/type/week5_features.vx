@@ -1,0 +1,28 @@
+// Week 5's new checks, all passing clean: function-call and struct-
+// construction signature checking, struct field access, and array literals
+// and indexing.
+
+struct Point { x: int, y: int }
+
+fn distance_squared(a: Point, b: Point) -> int {
+    var dx = a.x - b.x;
+    var dy = a.y - b.y;
+    return dx * dx + dy * dy;
+}
+
+fn sum(values: int[5]) -> int {
+    var total = 0;
+    for i in 0..5 {
+        total = total + values[i];
+    }
+    return total;
+}
+
+fn main() {
+    var p1 = Point(0, 0);
+    var p2 = Point(3, 4);
+    print(distance_squared(p1, p2));
+
+    var nums = [1, 2, 3, 4, 5];
+    print(sum(nums));
+}

@@ -1,14 +1,13 @@
-// Type checker tests -- week 4 of ROADMAP.md: symbol table with lexical
+// Type checker tests -- week 4 (core) and week 5 (completion + diagnostics
+// polish) of ROADMAP.md. Week 4 built the symbol table with lexical
 // scoping, type representation, expression typing, let/var inference, and
-// mutability enforcement. The week's "done when" bar is accurate spans on
-// the offending operand rather than the whole statement; test_span_is_on_
-// offending_operand_not_whole_statement below is the literal check for
-// that.
+// mutability enforcement; its "done when" bar (accurate spans on the
+// offending operand rather than the whole statement) is checked by
+// test_span_is_on_offending_operand_not_whole_statement below.
 //
-// CallExpr and IndexExpr are deliberately not validated this week (see
-// type_checker.hpp) -- test_call_and_index_defer_to_week_5 pins that down
-// so a future week 5 change doesn't accidentally start requiring `print`
-// to be declared.
+// Week 5 adds function-call and struct-construction signature checking
+// (including the `print` builtin), struct field access, array literals and
+// indexing, definite-return analysis, and "did you mean" suggestions.
 #include "vex/type_checker.hpp"
 
 #include <string>
@@ -56,6 +55,21 @@ void check_ok(const std::string& source, const std::string& what) {
 
 void check_error(const std::string& source, const std::string& expected, const std::string& what) {
     check_eq(check_source(source, what), expected, what);
+}
+
+// Runs the full pipeline like check_source(), but returns the first
+// diagnostic's suggested replacement (or "<none>") -- for "did you mean"
+// tests, which check_source()'s message-only comparison can't see.
+std::string first_suggestion(const std::string& source) {
+    vex::SourceManager sm("t", source);
+    vex::Lexer lexer(sm);
+    std::vector<vex::Token> tokens = lexer.tokenize();
+    vex::Parser parser(std::move(tokens), sm);
+    vex::Program program = parser.parse_program();
+    vex::TypeChecker checker(program);
+    checker.check();
+    if (checker.diagnostics().empty() || !checker.diagnostics()[0].suggestion) return "<none>";
+    return checker.diagnostics()[0].suggestion->replacement;
 }
 
 void test_clean_program_has_no_diagnostics() {
@@ -221,17 +235,173 @@ void test_span_is_on_offending_operand_not_whole_statement() {
     }
 }
 
-// CallExpr and IndexExpr are unchecked this week (ROADMAP.md defers
-// function-signature and array-indexing checks to week 5) -- pin that down
-// so a partial week-5 change doesn't silently start requiring `print` to be
-// a declared function.
-void test_call_and_index_defer_to_week_5() {
-    check_ok("fn main() { print(1); }", "calling an undeclared function is not (yet) an error");
-    check_ok("fn main() { var arr = 1; var x = arr[0]; }", "indexing is not (yet) type-checked");
-    // But a genuine type error nested inside a call argument is still
-    // caught -- only the call itself is unchecked, not its arguments.
+// ---------------------------------------------------------------------
+// Week 5: function-call and struct-construction signature checking
+// ---------------------------------------------------------------------
+
+void test_call_checks_arity_and_argument_types() {
+    check_ok("fn add(a: int, b: int) -> int { return a + b; } fn main() { var x = add(1, 2); }",
+             "correct call arity and argument types");
+    check_error("fn add(a: int, b: int) -> int { return a + b; } fn main() { add(1); }",
+                "function `add` expects 2 argument(s), found 1", "too few arguments");
+    check_error("fn add(a: int, b: int) -> int { return a + b; } fn main() { add(1, 2, 3); }",
+                "function `add` expects 2 argument(s), found 3", "too many arguments");
+    check_error("fn add(a: int, b: int) -> int { return a + b; } fn main() { add(1, true); }",
+                "argument 2 to `add` should be `int`, found `bool`", "wrong argument type");
+}
+
+void test_call_return_type_flows_through() {
+    check_error("fn add(a: int, b: int) -> int { return a + b; } fn main() { var x: bool = add(1, 2); }",
+                "cannot assign value of type `int` to variable of type `bool`",
+                "a call's type is its function's declared return type");
+}
+
+void test_recursive_and_forward_calls_resolve() {
+    check_ok("fn fib(n: int) -> int { if n < 2 { return n; } return fib(n - 1) + fib(n - 2); } fn main() { fib(5); }",
+             "a function can call itself");
+    check_ok("fn main() { helper(); } fn helper() {}",
+             "a function can call one declared later in the file");
+}
+
+void test_call_to_builtin_print() {
+    check_ok("fn main() { print(1); print(\"hi\", true); }", "print accepts any argument(s)");
+    check_error("fn main() { print(); }", "`print` expects at least one argument", "print needs an argument");
     check_error("fn main() { print(1 + true); }", "expected `int`, found `bool`",
-                "errors nested inside a call argument are still caught");
+                "a type error nested inside a print argument is still caught");
+}
+
+void test_undefined_function_call() {
+    check_error("fn main() { nope(); }", "undefined function `nope`", "calling an undeclared function");
+}
+
+void test_undefined_function_suggests_closest_name() {
+    check_eq(first_suggestion("fn helper() {} fn main() { helpr(); }"), std::string("helper"),
+             "typo'd call suggests the declared function");
+}
+
+// ---------------------------------------------------------------------
+// Week 5: struct construction and field access
+// ---------------------------------------------------------------------
+
+void test_struct_construction_and_field_access() {
+    check_ok("struct Point { x: int, y: int } fn main() { var p = Point(1, 2); var x = p.x; }",
+             "constructing a struct and reading its fields");
+    check_error("struct Point { x: int, y: int } fn main() { Point(1); }",
+                "`Point` has 2 field(s), found 1 argument(s)", "wrong construction arity");
+    check_error("struct Point { x: int, y: int } fn main() { Point(1, true); }",
+                "field `y` of `Point` should be `int`, found `bool`", "wrong field type at construction");
+}
+
+void test_field_access_unknown_field() {
+    check_error("struct Point { x: int, y: int } fn main() { var p = Point(1, 2); var z = p.z; }",
+                "no field `z` on struct `Point`", "accessing a field that doesn't exist");
+}
+
+void test_field_access_suggests_closest_field() {
+    check_eq(first_suggestion("struct Point { x: int, y: int } fn main() { var p = Point(1, 2); var z = p.xx; }"),
+             std::string("x"), "typo'd field suggests the declared field");
+}
+
+void test_field_access_on_non_struct() {
+    check_error("fn main() { var x = 1; var y = x.field; }", "cannot access field `field` on type `int`",
+                "field access on a non-struct type");
+}
+
+void test_assign_through_field_access() {
+    check_ok("struct Point { x: int, y: int } fn main() { var p = Point(1, 2); p.x = 5; }",
+             "assigning through a field on a mutable struct");
+    check_error("struct Point { x: int, y: int } fn main() { let p = Point(1, 2); p.x = 5; }",
+                "cannot assign to immutable variable `p`", "assigning through a field on an immutable struct");
+    check_error("struct Point { x: int, y: int } fn main() { var p = Point(1, 2); p.x = true; }",
+                "cannot assign value of type `bool` to variable of type `int`",
+                "assigning a mismatched type through a field");
+}
+
+// ---------------------------------------------------------------------
+// Week 5: array literals and indexing
+// ---------------------------------------------------------------------
+
+void test_array_literal_and_index() {
+    check_ok("fn main() { var a: int[3] = [1, 2, 3]; var x = a[0]; }", "array literal matching its declared type");
+    check_ok("fn main() { var a = [1, 2, 3]; var x = a[0] + 1; }", "array type inferred, element usable as int");
+}
+
+void test_empty_array_literal_cannot_infer_type() {
+    check_error("fn main() { var a = []; }", "cannot infer the element type of an empty array literal",
+                "an empty array literal has nothing to infer an element type from");
+}
+
+void test_array_literal_element_type_mismatch() {
+    check_error("fn main() { var a = [1, true, 3]; }", "array element should be `int`, found `bool`",
+                "inconsistent array element types");
+}
+
+void test_array_literal_size_mismatch_against_declared_type() {
+    check_error("fn main() { var a: int[5] = [1, 2, 3]; }",
+                "cannot assign value of type `int[3]` to variable of type `int[5]`",
+                "array literal size must match its declared type's size");
+}
+
+void test_index_requires_int() {
+    check_error("fn main() { var a = [1, 2, 3]; var x = a[true]; }",
+                "array index must be of type `int`, found `bool`", "non-int index");
+}
+
+void test_index_into_non_array() {
+    check_error("fn main() { var x = 1; var y = x[0]; }", "cannot index into type `int`", "indexing a non-array");
+}
+
+void test_index_out_of_bounds_literal() {
+    check_error("fn main() { var a = [1, 2, 3]; var x = a[5]; }",
+                "index 5 out of bounds for array of size 3", "statically-known out-of-bounds index");
+    check_ok("fn main() { var a = [1, 2, 3]; var x = a[2]; }", "index equal to size-1 is in bounds");
+}
+
+// ---------------------------------------------------------------------
+// Week 5: definite-return analysis
+// ---------------------------------------------------------------------
+
+void test_definite_return_missing() {
+    check_error("fn f() -> int { if true { return 1; } }",
+                "function `f` doesn't return a value on all code paths", "missing return on the else-less path");
+}
+
+void test_definite_return_only_inside_loop_is_not_enough() {
+    check_error("fn f() -> int { while true { return 1; } }",
+                "function `f` doesn't return a value on all code paths",
+                "a loop is never assumed to run, so returning only inside one doesn't count");
+}
+
+void test_definite_return_if_else_both_return() {
+    check_ok("fn f(n: int) -> int { if n < 0 { return -1; } else { return 1; } }",
+             "both branches of an if/else return");
+    check_ok("fn classify(n: int) -> int {\n"
+             "  if n < 0 { return -1; } else { if n == 0 { return 0; } else { return 1; } }\n"
+             "}",
+             "else-if chain (desugared as nested if/else) where every branch returns");
+}
+
+void test_definite_return_not_required_for_void() {
+    check_ok("fn f() { if true { return; } }", "a void function is never required to return on every path");
+}
+
+// ---------------------------------------------------------------------
+// Week 5: diagnostics polish -- suggestions and cross-namespace redeclaration
+// ---------------------------------------------------------------------
+
+void test_undefined_variable_suggests_closest_name() {
+    check_eq(first_suggestion("fn main() { let count = 1; let x = counnt; }"), std::string("count"),
+             "typo'd variable suggests the declared one");
+}
+
+void test_unknown_type_suggests_closest_name() {
+    check_eq(first_suggestion("fn main() { let v: flot = 1.0; }"), std::string("float"),
+             "typo'd type name suggests the real one");
+}
+
+void test_struct_and_function_share_one_namespace() {
+    check_error("struct Point { x: int } fn Point() {}", "redeclaration of `Point`",
+                "a function colliding with a struct name is a redeclaration");
 }
 
 }  // namespace
@@ -267,5 +437,34 @@ void run_type_checker_tests() {
     test_struct_field_type_resolves();
     test_param_type_and_immutability();
     test_span_is_on_offending_operand_not_whole_statement();
-    test_call_and_index_defer_to_week_5();
+
+    test_call_checks_arity_and_argument_types();
+    test_call_return_type_flows_through();
+    test_recursive_and_forward_calls_resolve();
+    test_call_to_builtin_print();
+    test_undefined_function_call();
+    test_undefined_function_suggests_closest_name();
+
+    test_struct_construction_and_field_access();
+    test_field_access_unknown_field();
+    test_field_access_suggests_closest_field();
+    test_field_access_on_non_struct();
+    test_assign_through_field_access();
+
+    test_array_literal_and_index();
+    test_empty_array_literal_cannot_infer_type();
+    test_array_literal_element_type_mismatch();
+    test_array_literal_size_mismatch_against_declared_type();
+    test_index_requires_int();
+    test_index_into_non_array();
+    test_index_out_of_bounds_literal();
+
+    test_definite_return_missing();
+    test_definite_return_only_inside_loop_is_not_enough();
+    test_definite_return_if_else_both_return();
+    test_definite_return_not_required_for_void();
+
+    test_undefined_variable_suggests_closest_name();
+    test_unknown_type_suggests_closest_name();
+    test_struct_and_function_share_one_namespace();
 }

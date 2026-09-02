@@ -1,0 +1,8 @@
+// A typo'd field name -- the checker should suggest the declared field and
+// point at where the struct itself was declared.
+struct Point { x: int, y: int }
+
+fn main() {
+    var p = Point(1, 2);
+    var z = p.zz;
+}

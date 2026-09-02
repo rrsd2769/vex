@@ -1,0 +1,7 @@
+error: function `classify` doesn't return a value on all code paths
+  --> tests/errors/missing_return.vx:3:28
+  |
+3 | fn classify(n: int) -> int {
+  |                        --- expected because the return type is declared `int` here
+3 | fn classify(n: int) -> int {
+  |                            ^ not every path through this body returns

@@ -1,0 +1,5 @@
+error: function `add` expects 2 argument(s), found 1
+  --> tests/errors/wrong_arity.vx:7:5
+  |
+7 |     add(1);
+  |     ^^^^^^ wrong number of arguments

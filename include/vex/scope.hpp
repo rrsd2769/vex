@@ -3,6 +3,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "vex/span.hpp"
 #include "vex/type.hpp"
@@ -41,6 +42,12 @@ public:
     // Walks this scope, then its parent, then its parent's parent, ...
     // Returns nullptr if `name` isn't bound anywhere in the chain.
     const Symbol* resolve(const std::string& name) const;
+
+    // Every name visible from this scope, across the whole parent chain --
+    // week 5's "did you mean `count`?" suggestions need a candidate list to
+    // search. May contain duplicates when an inner scope shadows an outer
+    // one; harmless for a nearest-match search.
+    std::vector<std::string> visible_names() const;
 
 private:
     std::unordered_map<std::string, Symbol> symbols_;

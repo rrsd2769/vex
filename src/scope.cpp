@@ -15,4 +15,12 @@ const Symbol* Scope::resolve(const std::string& name) const {
     return nullptr;
 }
 
+std::vector<std::string> Scope::visible_names() const {
+    std::vector<std::string> names;
+    for (const Scope* scope = this; scope != nullptr; scope = scope->parent_) {
+        for (const auto& [name, symbol] : scope->symbols_) names.push_back(name);
+    }
+    return names;
+}
+
 }  // namespace vex

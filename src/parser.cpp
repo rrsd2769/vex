@@ -132,6 +132,13 @@ ExprPtr Parser::parse_postfix() {
 
             Span span{expr->span.start, rbracket->span.end};
             expr = std::make_unique<Expr>(Expr{span, IndexExpr{std::move(expr), std::move(index)}});
+        } else if (match(TokenKind::Dot)) {
+            const Token* field = expect(TokenKind::Identifier, "a field name");
+            if (!field) return nullptr;
+
+            Span span{expr->span.start, field->span.end};
+            expr = std::make_unique<Expr>(
+                Expr{span, FieldAccessExpr{std::move(expr), std::string(lexeme(*field)), field->span}});
         } else {
             break;
         }
@@ -161,8 +168,31 @@ ExprPtr Parser::parse_primary() {
         return inner;
     }
 
+    if (check(TokenKind::LBracket)) return parse_array_literal();
+
     error(peek(), "expected an expression, found " + std::string(token_kind_name(peek().kind)));
     return nullptr;
+}
+
+ExprPtr Parser::parse_array_literal() {
+    Token lbracket = advance();  // `[`
+
+    std::vector<ExprPtr> elements;
+    if (!check(TokenKind::RBracket)) {
+        for (;;) {
+            ExprPtr elem = parse_binary(0);
+            if (!elem) return nullptr;
+            elements.push_back(std::move(elem));
+            if (!match(TokenKind::Comma)) break;
+            if (check(TokenKind::RBracket)) break;  // trailing comma
+        }
+    }
+
+    const Token* rbracket = expect(TokenKind::RBracket, "`]` to close array literal");
+    if (!rbracket) return nullptr;
+
+    Span span{lbracket.span.start, rbracket->span.end};
+    return std::make_unique<Expr>(Expr{span, ArrayLiteral{std::move(elements)}});
 }
 
 ExprPtr Parser::make_int_literal(const Token& tok) {
@@ -245,7 +275,26 @@ StmtPtr Parser::parse_statement() {
 std::optional<TypeRef> Parser::parse_type_ref(const std::string& what) {
     const Token* tok = expect(TokenKind::Identifier, what);
     if (!tok) return std::nullopt;
-    return TypeRef{std::string(lexeme(*tok)), tok->span};
+    std::string name(lexeme(*tok));
+    Span span = tok->span;
+
+    // Fixed-size array suffix, `int[5]` -- week 5. Absent means an ordinary
+    // (non-array) type.
+    std::optional<std::uint32_t> array_size;
+    if (match(TokenKind::LBracket)) {
+        const Token* size_tok = expect(TokenKind::IntLiteral, "an array size");
+        if (!size_tok) return std::nullopt;
+        std::uint32_t size = 0;
+        std::string_view size_text = lexeme(*size_tok);
+        std::from_chars(size_text.data(), size_text.data() + size_text.size(), size);
+        array_size = size;
+
+        const Token* rbracket = expect(TokenKind::RBracket, "`]` after array size");
+        if (!rbracket) return std::nullopt;
+        span.end = rbracket->span.end;
+    }
+
+    return TypeRef{std::move(name), span, array_size};
 }
 
 StmtPtr Parser::parse_var_decl() {

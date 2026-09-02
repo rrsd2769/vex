@@ -101,6 +101,16 @@ void test_call_and_index() {
     check_parses_to("a[b][c]", "(index (index a b) c)", "chained index");
 }
 
+// Week 5: `.field` postfix access and `[e1, e2, ...]` array literals.
+void test_field_access_and_array_literal() {
+    check_parses_to("p.x", "(field p x)", "field access");
+    check_parses_to("a.b.c", "(field (field a b) c)", "chained field access");
+    check_parses_to("f().x[0]", "(index (field (call f) x) 0)", "call, field, index, left to right");
+    check_parses_to("[1, 2, 3]", "(array 1 2 3)", "array literal");
+    check_parses_to("[]", "(array)", "empty array literal");
+    check_parses_to("[1, 2,]", "(array 1 2)", "array literal trailing comma");
+}
+
 void test_grouping_does_not_change_shape() {
     check_parses_to("(1 + 2)", "(+ 1 2)", "redundant grouping");
     check_parses_to("((1))", "1", "nested redundant grouping around a literal");
@@ -166,7 +176,14 @@ void test_var_decl() {
 void test_assign_and_expr_statement() {
     check_stmt_parses_to("total = total + 1;", "(= total (+ total 1))", "assignment");
     check_stmt_parses_to("arr[0] = 5;", "(= (index arr 0) 5)", "assignment to an index target");
+    check_stmt_parses_to("p.x = 5;", "(= (field p x) 5)", "assignment to a field target");
     check_stmt_parses_to("print(total);", "(call print total)", "expression statement");
+}
+
+// Week 5: `T[N]` array type syntax in a var decl's type annotation.
+void test_array_type_ref() {
+    check_stmt_parses_to("let a: int[5] = [1, 2, 3, 4, 5];", "(let a int[5] (array 1 2 3 4 5))",
+                          "array type annotation and literal");
 }
 
 void test_if_else() {
@@ -217,6 +234,11 @@ void test_function_with_no_params_or_return_type() {
 void test_struct_trailing_comma() {
     check_eq(parse_program_ok("struct Pair { a: int, b: int, }", "trailing comma"), "(struct Pair (a int) (b int))",
               "trailing comma");
+}
+
+void test_struct_field_array_type() {
+    check_eq(parse_program_ok("struct Grid { cells: int[9] }", "array-typed field"), "(struct Grid (cells int[9]))",
+              "array-typed field");
 }
 
 // Spans are the whole point of the position model (ADR 0001) -- a
@@ -301,6 +323,7 @@ void run_parser_tests() {
     test_full_precedence_ladder();
     test_unary();
     test_call_and_index();
+    test_field_access_and_array_literal();
     test_grouping_does_not_change_shape();
     test_literals();
     test_span_covers_whole_expression();
@@ -309,6 +332,7 @@ void run_parser_tests() {
 
     test_var_decl();
     test_assign_and_expr_statement();
+    test_array_type_ref();
     test_if_else();
     test_while();
     test_for_range();
@@ -316,6 +340,7 @@ void run_parser_tests() {
     test_function_and_struct_decl();
     test_function_with_no_params_or_return_type();
     test_struct_trailing_comma();
+    test_struct_field_array_type();
     test_stmt_span_covers_whole_statement();
     test_three_errors_all_reported();
 }

@@ -1,0 +1,7 @@
+error: undefined variable `counnt`
+  --> tests/errors/did_you_mean_variable.vx:4:13
+  |
+4 |     let x = counnt;
+  |             ^^^^^^ not found in this scope
+
+help: did you mean `count`?

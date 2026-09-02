@@ -1,0 +1,5 @@
+error: index 5 out of bounds for array of size 3
+  --> tests/errors/index_out_of_bounds.vx:4:20
+  |
+4 |     var x = scores[5];
+  |                    ^ out of bounds
