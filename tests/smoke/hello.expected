@@ -1,1 +1,6 @@
-vex: 1 top-level item(s) from tests/smoke/hello.vx type-check OK (no bytecode compiler yet)
+== main ==
+0000  Constant          0  ; 1
+0003  Constant          1  ; 2
+0006  Add
+0007  CallPrint         argc=1
+0010  Return            width=0

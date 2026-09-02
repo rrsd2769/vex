@@ -1,1 +1,41 @@
-vex: 3 top-level item(s) from tests/type/clean_program.vx type-check OK (no bytecode compiler yet)
+== fib ==
+0000  GetLocal          slot=0 width=1
+0005  Constant          0  ; 2
+0008  Less
+0009  JumpIfFalse       ->0022
+0014  GetLocal          slot=0 width=1
+0019  Return            width=1
+0022  GetLocal          slot=0 width=1
+0027  Constant          1  ; 1
+0030  Sub
+0031  Call              fn=0(fib) args=1 ret=1
+0038  GetLocal          slot=0 width=1
+0043  Constant          2  ; 2
+0046  Sub
+0047  Call              fn=0(fib) args=1 ret=1
+0054  Add
+0055  Return            width=1
+0058  Return            width=0
+== main ==
+0000  Constant          0  ; 0
+0003  Constant          1  ; 0
+0006  Constant          2  ; 10
+0009  GetLocal          slot=1 width=1
+0014  GetLocal          slot=2 width=1
+0019  Less
+0020  JumpIfFalse       ->0067
+0025  GetLocal          slot=0 width=1
+0030  GetLocal          slot=1 width=1
+0035  Call              fn=0(fib) args=1 ret=1
+0042  Add
+0043  SetLocal          slot=0 width=1
+0048  GetLocal          slot=1 width=1
+0053  Constant          3  ; 1
+0056  Add
+0057  SetLocal          slot=1 width=1
+0062  Jump              ->0009
+0067  Pop               width=2
+0070  GetLocal          slot=0 width=1
+0075  CallPrint         argc=1
+0078  Pop               width=1
+0081  Return            width=0

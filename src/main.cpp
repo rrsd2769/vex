@@ -10,6 +10,8 @@
 #include <string>
 #include <vector>
 
+#include "vex/bytecode.hpp"
+#include "vex/bytecode_compiler.hpp"
 #include "vex/diagnostic_renderer.hpp"
 #include "vex/lexer.hpp"
 #include "vex/parser.hpp"
@@ -63,11 +65,14 @@ int main(int argc, char** argv) {
         return 65;  // EX_DATAERR
     }
 
+    vex::BytecodeCompiler compiler(program, checker);
+    vex::BytecodeProgram bytecode = compiler.compile();
+
     // ---------------------------------------------------------------
-    // TODO(week 6): the bytecode compiler, which will compile `program`.
+    // TODO(week 7): the VM, which will execute `bytecode` instead of just
+    // disassembling it.
     // ---------------------------------------------------------------
 
-    std::cout << "vex: " << program.items.size() << " top-level item(s) from " << argv[1]
-               << " type-check OK (no bytecode compiler yet)\n";
+    std::cout << vex::disassemble(bytecode);
     return 0;
 }

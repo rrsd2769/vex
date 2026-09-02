@@ -1,0 +1,5 @@
+error: cannot call this expression
+  --> tests/errors/computed_call.vx:10:5
+   |
+10 |     f()();
+   |     ^^^ only a function or struct name can be called

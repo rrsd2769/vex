@@ -133,9 +133,30 @@ Week 5 is complete: function calls and struct construction (`Point(1, 2)`, posit
 **Done when:** ~~every error in `tests/errors/` renders with primary span, secondary span where relevant, and a suggestion where one is possible.~~
 
 ### Week 6 — Bytecode compiler
-Design the instruction set (stack machine — simpler than a register VM and easier to defend). Constant pool, local slot allocation, and jump patching: emit a jump before you know its target, record the hole, backfill it once you do.
 
-**Done when:** a disassembler prints readable bytecode for every example, and control flow lands on the correct offsets.
+~~Design the instruction set (stack machine — simpler than a register VM and easier to defend). Constant pool, local slot allocation, and jump patching: emit a jump before you know its target, record the hole, backfill it once you do.~~ — **done.**
+
+Week 6 is complete: a 25-opcode stack-machine instruction set
+(`include/vex/bytecode.hpp`), a compiler that lowers a type-checked
+`Program` to it (`include/vex/bytecode_compiler.hpp`), and a disassembler
+that's now `main.cpp`'s success-path output for every example. Struct
+construction and array literals compile to *no opcode at all* — a value's
+representation is exactly the concatenation of its fields'/elements' slots
+in declaration order, which argument/element evaluation order already
+produces for free; a local's declaration is likewise free (its initializer's
+result *is* its slot). Field access and array indexing resolve to a single
+frame-relative address computed at compile time, with one dynamic
+(non-literal-index) component allowed per chain — see
+`bytecode_compiler.hpp`'s header comment for the exact addressing scheme and
+its one documented gap (two dynamic indices in the same chain). Two real
+gaps surfaced and were closed while building this: a struct that contains
+itself (directly or through another struct/an array field) now has no
+finite size, so week 5's checker was missing a diagnostic for it
+(`check_no_cyclic_structs()`); and `f()()` — chained call syntax, since the
+language has no first-class functions — used to type-check silently instead
+of being rejected.
+
+**Done when:** ~~a disassembler prints readable bytecode for every example, and control flow lands on the correct offsets.~~
 
 ### Week 7 — Virtual machine
 Dispatch loop, value representation (tagged union), call frames, the arena allocator, and the runtime for strings and arrays.

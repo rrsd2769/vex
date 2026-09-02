@@ -1,0 +1,42 @@
+// Week 6's own golden test: exercises the bytecode paths week5_features.vx
+// and examples/fib.vx don't -- a while loop, `&&` short-circuiting, a
+// nested struct (Segment contains an array of Point), and the one address-
+// computation case that needs GetLocalIndexed's extra_offset operand:
+// `s.points[idx].y`, a *static* field access *after* a *dynamic* array
+// index (see bytecode_compiler.hpp's header comment on resolve_address()).
+
+struct Point { x: int, y: int }
+struct Segment { points: Point[2] }
+
+fn make_segment() -> Segment {
+    return Segment([Point(1, 2), Point(3, 4)]);
+}
+
+fn second_point_y(s: Segment, idx: int) -> int {
+    return s.points[idx].y;
+}
+
+fn in_range(n: int, low: int, high: int) -> bool {
+    if n >= low && n < high {
+        return true;
+    } else {
+        return false;
+    }
+}
+
+fn sum_while(n: int) -> int {
+    var total = 0;
+    var i = 0;
+    while i < n {
+        total = total + i;
+        i = i + 1;
+    }
+    return total;
+}
+
+fn main() {
+    var seg = make_segment();
+    print(second_point_y(seg, 1));
+    print(in_range(5, 0, 10));
+    print(sum_while(5));
+}

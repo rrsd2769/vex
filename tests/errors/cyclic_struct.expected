@@ -1,0 +1,5 @@
+error: struct `Node` cannot contain itself
+  --> tests/errors/cyclic_struct.vx:4:21
+  |
+4 | struct Node { next: Node }
+  |                     ^^^^ `next: Node` would make `Node` infinitely large

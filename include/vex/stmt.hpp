@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <unordered_map>
 #include <variant>
 #include <vector>
 
@@ -13,6 +14,8 @@
 #include "vex/span.hpp"
 
 namespace vex {
+
+struct Type;  // vex/type.hpp -- see try_resolve_type_ref below
 
 struct Stmt;
 using StmtPtr = std::unique_ptr<Stmt>;
@@ -114,6 +117,16 @@ struct Item {
 struct Program {
     std::vector<Item> items;
 };
+
+// Resolves a TypeRef to a Type, given the struct table to check its name
+// against -- shared by TypeChecker (week 4/5) and BytecodeCompiler (week 6),
+// which both need to turn `int`, `Point`, or `int[5]` into a real Type and
+// must never disagree about what a given TypeRef means. Returns nullopt for
+// an unknown type name; TypeChecker turns that into a diagnostic (with a
+// "did you mean" candidate list only it needs to build), while
+// BytecodeCompiler never sees nullopt in practice, since it only ever runs
+// on a program the checker already accepted -- see bytecode_compiler.hpp.
+std::optional<Type> try_resolve_type_ref(const TypeRef& ref, const std::unordered_map<std::string, const StructDecl*>& structs);
 
 // Same purpose as dump_expr: render as an S-expression so tests can verify
 // tree shape without hand-deriving it by eye.

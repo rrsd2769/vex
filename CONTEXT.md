@@ -111,6 +111,28 @@ _Avoid_: literal (at this stage)
 A single operation in compiled bytecode: an opcode together with its operands.
 _Avoid_: op, command, bytecode (for an individual one)
 
+**Opcode**:
+The operation an Instruction performs, without its operands -- `OpCode::Add`,
+not "Add plus its two popped operands." An Instruction is an Opcode plus
+whatever fixed-width operands it encodes (e.g. `Constant`'s pool index,
+`Jump`'s target offset).
+_Avoid_: op (as a synonym for Instruction -- see Instruction's own _Avoid_)
+
+**Chunk**:
+One function's compiled Instructions plus the Constant pool they index into.
+Every jump target is an absolute byte offset within its own Chunk.
+_Avoid_: bytecode (too general -- a Chunk is one function's worth)
+
+**Slot**:
+One fixed-size unit of space on the VM's value stack, addressed by a
+frame-relative index. A local variable occupies a contiguous run of slots
+whose count ("width") is its Type's size: 1 for a primitive, the sum of a
+struct's fields' widths for a Struct, element-width times length for an
+Array -- see `bytecode_compiler.hpp`'s header comment on why this needs no
+heap for structs or arrays, only for a string's dynamic content.
+_Avoid_: register (this is a stack machine, not a register machine),
+word (a Slot is a logical unit, not necessarily a machine word)
+
 ## Pipeline verbs
 
 **compile**:

@@ -2,7 +2,30 @@
 
 #include <sstream>
 
+#include "vex/type.hpp"
+
 namespace vex {
+
+std::optional<Type> try_resolve_type_ref(const TypeRef& ref,
+                                          const std::unordered_map<std::string, const StructDecl*>& structs) {
+    Type base = Type::unknown();
+
+    if (ref.name == "int") {
+        base = Type::primitive(TypeKind::Int);
+    } else if (ref.name == "float") {
+        base = Type::primitive(TypeKind::Float);
+    } else if (ref.name == "bool") {
+        base = Type::primitive(TypeKind::Bool);
+    } else if (ref.name == "string") {
+        base = Type::primitive(TypeKind::String);
+    } else if (structs.contains(ref.name)) {
+        base = Type::make_struct(ref.name);
+    } else {
+        return std::nullopt;
+    }
+
+    return ref.array_size ? Type::make_array(std::move(base), *ref.array_size) : base;
+}
 
 namespace {
 

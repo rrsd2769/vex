@@ -1,6 +1,7 @@
 #include "vex/type_checker.hpp"
 
 #include <algorithm>
+#include <functional>
 #include <vector>
 
 namespace vex {
@@ -112,6 +113,7 @@ void TypeChecker::error_with_suggestion(const Span& span, std::string message, s
 void TypeChecker::check() {
     register_structs();
     register_functions();
+    check_no_cyclic_structs();
     for (const Item& item : program_.items) {
         if (const auto* st = std::get_if<StructDecl>(&item.node)) {
             check_struct(*st);
@@ -153,31 +155,54 @@ void TypeChecker::register_functions() {
 }
 
 Type TypeChecker::resolve_type_ref(const TypeRef& ref) {
-    Type base = Type::unknown();
-    bool found = true;
-
-    if (ref.name == "int") {
-        base = Type::primitive(TypeKind::Int);
-    } else if (ref.name == "float") {
-        base = Type::primitive(TypeKind::Float);
-    } else if (ref.name == "bool") {
-        base = Type::primitive(TypeKind::Bool);
-    } else if (ref.name == "string") {
-        base = Type::primitive(TypeKind::String);
-    } else if (structs_.contains(ref.name)) {
-        base = Type::make_struct(ref.name);
-    } else {
-        found = false;
+    if (std::optional<Type> resolved = try_resolve_type_ref(ref, structs_)) {
+        return *resolved;
     }
+    std::vector<std::string> candidates{"int", "float", "bool", "string"};
+    for (const auto& [name, decl] : structs_) candidates.push_back(name);
+    error_with_suggestion(ref.span, "unknown type `" + ref.name + "`", "no such type", ref.name, candidates);
+    return Type::unknown();
+}
 
-    if (!found) {
-        std::vector<std::string> candidates{"int", "float", "bool", "string"};
-        for (const auto& [name, decl] : structs_) candidates.push_back(name);
-        error_with_suggestion(ref.span, "unknown type `" + ref.name + "`", "no such type", ref.name, candidates);
-        return Type::unknown();
-    }
+namespace {
+enum class VisitState { Unvisited, InProgress, Done };
+}  // namespace
 
-    return ref.array_size ? Type::make_array(std::move(base), *ref.array_size) : base;
+void TypeChecker::check_no_cyclic_structs() {
+    std::unordered_map<std::string, VisitState> state;
+    for (const auto& [name, decl] : structs_) state[name] = VisitState::Unvisited;
+
+    // DFS from every struct; a field (or an array field's element) typed as
+    // a struct currently InProgress on this DFS's path is a back-edge --
+    // that struct contains itself, directly or through a chain of other
+    // structs, and so has no finite size.
+    std::function<void(const std::string&)> visit = [&](const std::string& name) {
+        if (state[name] == VisitState::Done) return;
+        state[name] = VisitState::InProgress;
+
+        const StructDecl& decl = *structs_.at(name);
+        for (const Field& field : decl.fields) {
+            std::optional<Type> field_type = try_resolve_type_ref(field.type, structs_);
+            if (!field_type) continue;  // unknown type name -- resolve_type_ref() will report it separately
+            Type element = *field_type;
+            while (element.kind == TypeKind::Array) element = *element.element_type;
+            if (element.kind != TypeKind::Struct) continue;
+
+            if (state[element.struct_name] == VisitState::InProgress) {
+                error(field.type.span,
+                      "struct `" + name + "` cannot contain itself" +
+                          (element.struct_name == name ? "" : " (via `" + element.struct_name + "`)"),
+                      "`" + field.name + ": " + to_string(*field_type) + "` would make `" + name +
+                          "` infinitely large");
+                continue;
+            }
+            visit(element.struct_name);
+        }
+
+        state[name] = VisitState::Done;
+    };
+
+    for (const auto& [name, decl] : structs_) visit(name);
 }
 
 void TypeChecker::check_struct(const StructDecl& st) {
@@ -379,6 +404,12 @@ void TypeChecker::check_return(const ReturnStmt& stmt, const Span& stmt_span, Sc
 }
 
 Type TypeChecker::check_expr(const Expr& expr, Scope& scope) {
+    Type type = check_expr_impl(expr, scope);
+    expr_types_[&expr] = type;
+    return type;
+}
+
+Type TypeChecker::check_expr_impl(const Expr& expr, Scope& scope) {
     if (std::get_if<IntLiteral>(&expr.node)) return Type::primitive(TypeKind::Int);
     if (std::get_if<FloatLiteral>(&expr.node)) return Type::primitive(TypeKind::Float);
     if (std::get_if<BoolLiteral>(&expr.node)) return Type::primitive(TypeKind::Bool);
@@ -506,12 +537,18 @@ Type TypeChecker::check_binary(const BinaryExpr& node, Scope& scope) {
 Type TypeChecker::check_call(const CallExpr& node, const Span& call_span, Scope& scope) {
     const auto* callee = std::get_if<Identifier>(&node.callee->node);
     if (!callee) {
-        // The language has no first-class functions -- a computed callee
-        // (which the grammar allows, e.g. `(f)(1)`, but nothing in the
-        // language can ever produce) can't be resolved against
-        // functions_/structs_ by name. Walk it and the arguments for nested
-        // errors and leave the call itself unchecked, the same fallback
-        // week 4 used for every call before this week.
+        // The language has no first-class functions, so a callee that isn't
+        // a bare name can never be resolved. `(f)(1)` doesn't reach here --
+        // grouping parens produce no node (ast.hpp) -- but chained call
+        // syntax does: `f()()` parses fine (parse_postfix loops), giving a
+        // CallExpr whose own callee is itself a CallExpr. This used to
+        // silently return Unknown with no diagnostic, which meant such a
+        // program type-checked clean and only broke later, when week 6's
+        // BytecodeCompiler tried to compile a call whose callee wasn't an
+        // Identifier -- caught while building that compiler and fixed here,
+        // since "no diagnostics" is supposed to mean every later stage can
+        // trust the program.
+        error(node.callee->span, "cannot call this expression", "only a function or struct name can be called");
         check_expr(*node.callee, scope);
         for (const ExprPtr& arg : node.args) check_expr(*arg, scope);
         return Type::unknown();

@@ -1,0 +1,11 @@
+// The language has no first-class functions, so a callee that isn't a bare
+// name can never be resolved. `(f)(1)` doesn't reach this path -- grouping
+// parens produce no AST node -- but chained call syntax like `f()()` does:
+// the outer CallExpr's own callee is itself a CallExpr, not an Identifier.
+fn f() -> int {
+    return 1;
+}
+
+fn main() {
+    f()();
+}

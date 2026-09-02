@@ -1,1 +1,59 @@
-vex: 4 top-level item(s) from tests/type/week5_features.vx type-check OK (no bytecode compiler yet)
+== distance_squared ==
+0000  GetLocal          slot=0 width=1
+0005  GetLocal          slot=2 width=1
+0010  Sub
+0011  GetLocal          slot=1 width=1
+0016  GetLocal          slot=3 width=1
+0021  Sub
+0022  GetLocal          slot=4 width=1
+0027  GetLocal          slot=4 width=1
+0032  Mul
+0033  GetLocal          slot=5 width=1
+0038  GetLocal          slot=5 width=1
+0043  Mul
+0044  Add
+0045  Return            width=1
+0048  Pop               width=2
+0051  Return            width=0
+== sum ==
+0000  Constant          0  ; 0
+0003  Constant          1  ; 0
+0006  Constant          2  ; 5
+0009  GetLocal          slot=6 width=1
+0014  GetLocal          slot=7 width=1
+0019  Less
+0020  JumpIfFalse       ->0073
+0025  GetLocal          slot=5 width=1
+0030  GetLocal          slot=6 width=1
+0035  GetLocalIndexed   base=0 stride=1 size=5 extra=0 width=1
+0048  Add
+0049  SetLocal          slot=5 width=1
+0054  GetLocal          slot=6 width=1
+0059  Constant          3  ; 1
+0062  Add
+0063  SetLocal          slot=6 width=1
+0068  Jump              ->0009
+0073  Pop               width=2
+0076  GetLocal          slot=5 width=1
+0081  Return            width=1
+0084  Pop               width=1
+0087  Return            width=0
+== main ==
+0000  Constant          0  ; 0
+0003  Constant          1  ; 0
+0006  Constant          2  ; 3
+0009  Constant          3  ; 4
+0012  GetLocal          slot=0 width=2
+0017  GetLocal          slot=2 width=2
+0022  Call              fn=0(distance_squared) args=4 ret=1
+0029  CallPrint         argc=1
+0032  Constant          4  ; 1
+0035  Constant          5  ; 2
+0038  Constant          6  ; 3
+0041  Constant          7  ; 4
+0044  Constant          8  ; 5
+0047  GetLocal          slot=4 width=5
+0052  Call              fn=1(sum) args=5 ret=1
+0059  CallPrint         argc=1
+0062  Pop               width=9
+0065  Return            width=0

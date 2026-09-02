@@ -58,9 +58,25 @@ public:
 
     const std::vector<Diagnostic>& diagnostics() const { return diagnostics_; }
 
+    // Every expression's Type, as computed during check(). Populated
+    // regardless of whether check() found errors, so a caller that only
+    // proceeds when diagnostics() is empty (BytecodeCompiler, via main.cpp's
+    // pipeline gate) can trust every entry is a real, checked-valid Type,
+    // not Unknown -- see check_expr()'s wrapper. Keyed by Expr address,
+    // which is stable for the lifetime of the Program this checker was
+    // built from.
+    const std::unordered_map<const Expr*, Type>& expr_types() const { return expr_types_; }
+
 private:
     void register_structs();
     void register_functions();
+    // A struct that (directly or through a field's struct/array-of-struct
+    // type) contains itself has no finite size -- week 5's checker never
+    // computed a size, so it never needed to notice, but week 6's
+    // BytecodeCompiler does (see its layout pass). Run once, after
+    // register_structs(), via a white/gray/black DFS over struct field
+    // types; a back-edge is reported at the field that closes the cycle.
+    void check_no_cyclic_structs();
     Type resolve_type_ref(const TypeRef& ref);
 
     void check_function(const FunctionDecl& fn);
@@ -75,7 +91,12 @@ private:
     void check_for(const ForStmt& stmt, const Span& stmt_span, Scope& scope);
     void check_return(const ReturnStmt& stmt, const Span& stmt_span, Scope& scope);
 
+    // Records the result in expr_types_ before returning it; check_expr_impl
+    // does the actual dispatch and is what every other check_* method calls
+    // recursively on sub-expressions (through check_expr, not directly --
+    // check_expr_impl is private to this one wrapper).
     Type check_expr(const Expr& expr, Scope& scope);
+    Type check_expr_impl(const Expr& expr, Scope& scope);
     Type check_unary(const UnaryExpr& node, Scope& scope);
     Type check_binary(const BinaryExpr& node, Scope& scope);
     Type check_call(const CallExpr& node, const Span& call_span, Scope& scope);
@@ -117,6 +138,8 @@ private:
     // point a secondary label at.
     std::unordered_map<std::string, Span> item_spans_;
     const FunctionDecl* current_function_ = nullptr;
+    // Every expression's Type -- see expr_types() above.
+    std::unordered_map<const Expr*, Type> expr_types_;
 };
 
 }  // namespace vex

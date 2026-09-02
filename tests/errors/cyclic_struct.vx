@@ -1,0 +1,6 @@
+// A struct that contains itself has no finite size -- week 6's
+// BytecodeCompiler needs to compute struct widths, which is what surfaced
+// this gap: week 5's checker never computed a size, so it never noticed.
+struct Node { next: Node }
+
+fn main() {}

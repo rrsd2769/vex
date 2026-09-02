@@ -404,6 +404,33 @@ void test_struct_and_function_share_one_namespace() {
                 "a function colliding with a struct name is a redeclaration");
 }
 
+// ---------------------------------------------------------------------
+// Week 6: gaps surfaced while building the bytecode compiler -- neither
+// needed a size/identifier-shape guarantee before now, so week 5's checker
+// never had to enforce it. See type_checker.cpp's check_no_cyclic_structs()
+// and check_call()'s `!callee` branch.
+// ---------------------------------------------------------------------
+
+void test_directly_self_referential_struct_is_rejected() {
+    check_error("struct Node { next: Node } fn main() {}", "struct `Node` cannot contain itself",
+                "a struct containing itself directly has no finite size");
+}
+
+void test_indirectly_cyclic_structs_are_rejected() {
+    check_error("struct A { b: B } struct B { a: A } fn main() {}", "struct `A` cannot contain itself (via `B`)",
+                "a cycle through another struct is caught the same way as a direct one");
+}
+
+void test_struct_containing_array_of_itself_is_rejected() {
+    check_error("struct Node { children: Node[4] } fn main() {}", "struct `Node` cannot contain itself",
+                "an array field still needs its element's size, so array-of-self is cyclic too");
+}
+
+void test_chained_call_syntax_is_not_a_valid_callee() {
+    check_error("fn f() -> int { return 1; } fn main() { f()(); }", "cannot call this expression",
+                "the language has no first-class functions, so a call result can't itself be called");
+}
+
 }  // namespace
 
 void run_type_checker_tests() {
@@ -467,4 +494,9 @@ void run_type_checker_tests() {
     test_undefined_variable_suggests_closest_name();
     test_unknown_type_suggests_closest_name();
     test_struct_and_function_share_one_namespace();
+
+    test_directly_self_referential_struct_is_rejected();
+    test_indirectly_cyclic_structs_are_rejected();
+    test_struct_containing_array_of_itself_is_rejected();
+    test_chained_call_syntax_is_not_a_valid_callee();
 }
