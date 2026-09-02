@@ -100,6 +100,14 @@ enum class OpCode : std::uint8_t {
 
 const char* opcode_name(OpCode op);
 
+// Little-endian fixed-width operand decoding, shared by the disassembler
+// below and the week 7 VM's dispatch loop -- both must decode exactly the
+// instruction encoding Chunk::emit_u16/emit_u32 produce, so this is the one
+// place that does it (the same "one place, not two copies that can drift"
+// call as stmt.hpp's try_resolve_type_ref).
+std::uint16_t read_u16(const std::vector<std::uint8_t>& code, std::size_t offset);
+std::uint32_t read_u32(const std::vector<std::uint8_t>& code, std::size_t offset);
+
 // An entry in a Chunk's constant pool (CONTEXT.md: Constant) -- produced
 // from a Literal, but distinct from it. No Struct/Array constants: those
 // values are always built at their use site from already-executing code

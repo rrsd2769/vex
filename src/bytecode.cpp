@@ -57,6 +57,12 @@ void push_u32(std::vector<std::uint8_t>& code, std::uint32_t value) {
     }
 }
 
+void patch_u32(std::vector<std::uint8_t>& code, std::size_t offset, std::uint32_t value) {
+    for (int i = 0; i < 4; ++i) code[offset + i] = static_cast<std::uint8_t>((value >> (8 * i)) & 0xFF);
+}
+
+}  // namespace
+
 std::uint16_t read_u16(const std::vector<std::uint8_t>& code, std::size_t offset) {
     return static_cast<std::uint16_t>(code[offset]) | (static_cast<std::uint16_t>(code[offset + 1]) << 8);
 }
@@ -66,12 +72,6 @@ std::uint32_t read_u32(const std::vector<std::uint8_t>& code, std::size_t offset
     for (int i = 0; i < 4; ++i) value |= static_cast<std::uint32_t>(code[offset + i]) << (8 * i);
     return value;
 }
-
-void patch_u32(std::vector<std::uint8_t>& code, std::size_t offset, std::uint32_t value) {
-    for (int i = 0; i < 4; ++i) code[offset + i] = static_cast<std::uint8_t>((value >> (8 * i)) & 0xFF);
-}
-
-}  // namespace
 
 void Chunk::emit_op(OpCode op, const Span& span) {
     spans_[code_.size()] = span;

@@ -454,6 +454,23 @@ void BytecodeCompiler::compile_binary(const BinaryExpr& node, const Span& span, 
         return;
     }
 
+    if (node.op == TokenKind::EqEq || node.op == TokenKind::BangEq) {
+        // The checker allows == and != on any pair of matching types,
+        // struct and array included (type_checker.cpp's check_binary only
+        // requires rhs_type == lhs_type). But Eq/NotEq's instruction
+        // encoding carries no width operand -- it always pops exactly one
+        // slot per side (bytecode.hpp) -- so a multi-slot operand here
+        // would silently compare only its first slot. No test or example
+        // compares a struct or array today; loud failure over a silently
+        // wrong comparison, the same call made for print() of a
+        // struct/array above.
+        if (type_width(expr_types_.at(node.lhs.get())) != 1 || type_width(expr_types_.at(node.rhs.get())) != 1) {
+            throw std::runtime_error(
+                "bytecode compiler: comparing a struct or array with == or != is not supported -- see "
+                "bytecode_compiler.hpp's header comment");
+        }
+    }
+
     compile_expr(*node.lhs, fs);
     compile_expr(*node.rhs, fs);
     fs.chunk.emit_op(binary_opcode(node.op), span);

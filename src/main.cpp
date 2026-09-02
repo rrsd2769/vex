@@ -18,6 +18,7 @@
 #include "vex/source_manager.hpp"
 #include "vex/token.hpp"
 #include "vex/type_checker.hpp"
+#include "vex/vm.hpp"
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -68,11 +69,13 @@ int main(int argc, char** argv) {
     vex::BytecodeCompiler compiler(program, checker);
     vex::BytecodeProgram bytecode = compiler.compile();
 
-    // ---------------------------------------------------------------
-    // TODO(week 7): the VM, which will execute `bytecode` instead of just
-    // disassembling it.
-    // ---------------------------------------------------------------
+    vex::VM vm(bytecode);
+    try {
+        vm.run(std::cout);
+    } catch (const vex::VMError& e) {
+        std::cerr << vex::render_diagnostic(e.diagnostic(), source);
+        return 70;  // EX_SOFTWARE -- the program compiled clean but failed at runtime
+    }
 
-    std::cout << vex::disassemble(bytecode);
     return 0;
 }

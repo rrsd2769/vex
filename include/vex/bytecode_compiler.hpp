@@ -60,6 +60,14 @@
 //   instead of a flat argument count. compile_call() throws
 //   std::runtime_error if it sees one -- same "loud failure over silent
 //   wrong bytecode" call as the chained-dynamic-index limitation above.
+// - Likewise, `==`/`!=` require both operands to be exactly 1 slot wide:
+//   the checker allows comparing two structs or two arrays of the same
+//   type, but Eq/NotEq's instruction encoding has no width operand (always
+//   pops one slot per side), so a multi-slot operand would silently
+//   compare only its first slot. compile_binary() throws
+//   std::runtime_error rather than do that -- found while building the
+//   week 7 VM, which is what first needed Eq/NotEq's precondition (every
+//   operand is exactly 1 slot) to actually hold.
 #pragma once
 
 #include <cstdint>

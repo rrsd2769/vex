@@ -159,9 +159,37 @@ of being rejected.
 **Done when:** ~~a disassembler prints readable bytecode for every example, and control flow lands on the correct offsets.~~
 
 ### Week 7 — Virtual machine
-Dispatch loop, value representation (tagged union), call frames, the arena allocator, and the runtime for strings and arrays.
 
-**Done when:** `fib(30)` prints the right number, and every example program runs end to end. **This is the week the project becomes real.**
+~~Dispatch loop, value representation (tagged union), call frames, the arena allocator, and the runtime for strings and arrays.~~ — **done.**
+
+Week 7 is complete: a `Value` tagged union (`int64_t`/`double`/`bool`/a
+pointer into a new `Arena`, `include/vex/value.hpp`) and a `VM`
+(`include/vex/vm.hpp`) whose dispatch loop runs a `BytecodeProgram` to
+completion instead of just disassembling it. Call frames are index-based
+(function id, resume offset, frame base into one shared value stack) and
+always re-fetched from the frame/value-stack vectors rather than held
+across a `Call`/`Return`, since either can reallocate. `Call`'s calling
+convention falls straight out of week 6's own operand comments: a callee's
+frame base is just `stack.size() - arg_width` (the args already on the
+stack *become* its param locals, no copying), and `Return(width)` moves its
+top `width` slots down to that base and truncates — Call's own `ret_width`
+operand turned out to be purely informational once this was built.
+`Arena` is a bump allocator (a `std::deque<std::string>`, which never
+invalidates a pointer already handed out) that every string constant gets
+resolved into once at VM construction, not per-execution of a `Constant`
+instruction — see `value.hpp`'s header comment on why. A runtime failure
+(an out-of-bounds array index, integer division/modulo by zero) is reported
+through the same `Diagnostic`/`render_diagnostic` machinery as every
+compile-time stage, using `Chunk::span_at()` — recorded since week 6 but
+unconsumed until now, exactly as that week's handoff anticipated. One more
+real gap surfaced and was closed while building this: `compile_binary`'s
+`==`/`!=` case compiled a struct/array comparison to a single `Eq`/`NotEq`
+instruction even though that opcode has no width operand (it only ever
+pops one slot per side) — the same class of latent bug as week 6's two
+checker gaps, fixed the same way (`compile_binary` now throws rather than
+silently comparing only the first slot).
+
+**Done when:** ~~`fib(30)` prints the right number, and every example program runs end to end. **This is the week the project becomes real.**~~
 
 ### Week 8 — Benchmarks, docs, buffer
 Time the VM against CPython on `fib`, loops, and string work — you want a number. README with the pipeline diagram, an error-message showcase, and the design-decision table. A short demo GIF.

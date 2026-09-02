@@ -396,6 +396,18 @@ void test_print_of_struct_is_a_documented_compiler_limitation() {
     check_eq(result != "<did not throw>", true, "print(struct) throws rather than miscompiling");
 }
 
+void test_struct_equality_is_a_documented_compiler_limitation() {
+    // The checker allows `==` on two same-typed structs (check_binary only
+    // requires rhs_type == lhs_type), but Eq's instruction encoding has no
+    // width operand -- see this week's fix in compile_binary().
+    std::string result = expect_throw(
+        "struct Point { x: int, y: int }\n"
+        "fn main() {\n"
+        "  let eq = Point(1, 2) == Point(1, 2);\n"
+        "}\n");
+    check_eq(result != "<did not throw>", true, "struct == struct throws rather than miscompiling");
+}
+
 }  // namespace
 
 void run_bytecode_compiler_tests() {
@@ -415,4 +427,5 @@ void run_bytecode_compiler_tests() {
     test_print_of_scalar_uses_call_print_with_arg_count();
     test_chained_dynamic_index_is_a_documented_compiler_limitation();
     test_print_of_struct_is_a_documented_compiler_limitation();
+    test_struct_equality_is_a_documented_compiler_limitation();
 }

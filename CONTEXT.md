@@ -133,6 +133,29 @@ heap for structs or arrays, only for a string's dynamic content.
 _Avoid_: register (this is a stack machine, not a register machine),
 word (a Slot is a logical unit, not necessarily a machine word)
 
+**Value**:
+What occupies one Slot at runtime: a tagged union of `int64_t`, `double`,
+`bool`, or a pointer into the Arena for `string`. Distinct from a Constant
+(a compiled function's constant-pool entry) and from a Literal (its
+source-level ancestor) -- a Value is the third and final stage the same
+underlying data passes through.
+_Avoid_: constant, literal (at this stage)
+
+**Arena**:
+The bump allocator that owns every string a running program produces,
+never freeing until the VM itself is destroyed -- this project's
+deliberate, documented stand-in for a GC. See `value.hpp`.
+_Avoid_: heap (too general -- nothing here is individually freed or
+reused), pool (already means the per-Chunk constant pool)
+
+**Frame**:
+One function call's activation record on the VM's call stack: which
+function is running, where execution resumes in its Chunk, and where its
+Slot 0 begins on the (single, shared) value stack. Not to be confused with
+Scope, which is a compile-time concept.
+_Avoid_: activation record, stack frame (both correct, but longer than this
+codebase's other one-word terms)
+
 ## Pipeline verbs
 
 **compile**:
