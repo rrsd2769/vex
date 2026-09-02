@@ -28,9 +28,10 @@ int main(int argc, char** argv) {
     const std::string source = buf.str();
 
     // ---------------------------------------------------------------
-    // TODO(week 1): Diagnostic + renderer next, proven against a
-    // hand-constructed fake error (SourceManager is done -- see
-    // include/vex/source_manager.hpp). Then the lexer.
+    // TODO(week 1): the lexer, which will produce real Tokens with real
+    // Spans in place of `source` -- SourceManager and the Diagnostic
+    // renderer are both done. See include/vex/source_manager.hpp and
+    // include/vex/diagnostic_renderer.hpp.
     // ---------------------------------------------------------------
 
     std::cout << "vex: read " << source.size() << " bytes from " << argv[1]

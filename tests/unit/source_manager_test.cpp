@@ -1,34 +1,15 @@
 // Unit tests for SourceManager, focused on the edge cases that actually
 // crash or misrender a diagnostic caret: offset at EOF, missing trailing
 // newline, an empty file, and a tab-indented line.
-//
-// No test framework -- the project avoids libraries beyond the standard
-// library, so this is a plain main() with a hand-rolled check_eq(). Run
-// directly after building:
-//
-//     ./build/vex_unit_tests
 #include "vex/source_manager.hpp"
 
-#include <iostream>
 #include <string>
 
+#include "test_support.hpp"
+
+using vex_test::check_eq;
+
 namespace {
-
-int g_failures = 0;
-
-void check_eq(std::uint32_t actual, std::uint32_t expected, const std::string& what) {
-    if (actual != expected) {
-        std::cerr << "FAIL: " << what << " -- expected " << expected << ", got " << actual << "\n";
-        ++g_failures;
-    }
-}
-
-void check_eq(const std::string& actual, const std::string& expected, const std::string& what) {
-    if (actual != expected) {
-        std::cerr << "FAIL: " << what << " -- expected \"" << expected << "\", got \"" << actual << "\"\n";
-        ++g_failures;
-    }
-}
 
 // The "expected `}`" case: a diagnostic reported at the position one past
 // the last byte of the source.
@@ -85,17 +66,10 @@ void test_multiline_basic() {
 
 }  // namespace
 
-int main() {
+void run_source_manager_tests() {
     test_offset_at_eof();
     test_no_trailing_newline();
     test_empty_file();
     test_tab_indented_line();
     test_multiline_basic();
-
-    if (g_failures > 0) {
-        std::cerr << g_failures << " test(s) failed\n";
-        return 1;
-    }
-    std::cout << "all SourceManager tests passed\n";
-    return 0;
 }

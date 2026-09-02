@@ -84,9 +84,10 @@ Both are miserable to retrofit and cheap to do upfront.
 
 ~~1. `SourceManager` — owns the file text; converts byte offsets to line/column.~~ — **done.**
 
-Remaining, and **in this order**:
+~~2. `Diagnostic` + its renderer — carets, spans, secondary labels. Prove it with a *hand-constructed* fake error before any lexer exists.~~ — **done.**
 
-2. **`Diagnostic` + its renderer** — carets, spans, secondary labels. Prove it with a *hand-constructed* fake error before any lexer exists.
+Remaining:
+
 3. **The lexer** — now just a source of real spans to feed the renderer.
 
 Doing 2 before 3 is deliberate. If you can render a caret under a hardcoded span, the hard part of the diagnostics work is finished and the lexer becomes an easy win rather than two unfinished things at once.
