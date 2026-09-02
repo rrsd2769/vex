@@ -1,0 +1,5 @@
+error: unexpected character `@`
+  --> tests/lex/bad_char.vx:2:15
+  |
+2 |     let x = 1 @ 2;
+  |               ^ unexpected

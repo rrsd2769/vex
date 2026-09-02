@@ -1,15 +1,19 @@
 // vex -- entry point.
 //
-// This is a stub. It exists so the build and the test harness work end to end
-// from day one. Replace the marked section as you build each stage:
+// Replace the marked section as you build each stage:
 //
 //     source -> lexer -> parser -> type checker -> bytecode -> VM
 //
-#include <cstdio>
 #include <fstream>
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <vector>
+
+#include "vex/diagnostic_renderer.hpp"
+#include "vex/lexer.hpp"
+#include "vex/source_manager.hpp"
+#include "vex/token.hpp"
 
 int main(int argc, char** argv) {
     if (argc != 2) {
@@ -25,16 +29,22 @@ int main(int argc, char** argv) {
 
     std::ostringstream buf;
     buf << in.rdbuf();
-    const std::string source = buf.str();
+    vex::SourceManager source(argv[1], buf.str());
+
+    vex::Lexer lexer(source);
+    std::vector<vex::Token> tokens = lexer.tokenize();
+
+    if (!lexer.diagnostics().empty()) {
+        for (const vex::Diagnostic& diagnostic : lexer.diagnostics()) {
+            std::cerr << vex::render_diagnostic(diagnostic, source);
+        }
+        return 65;  // EX_DATAERR
+    }
 
     // ---------------------------------------------------------------
-    // TODO(week 1): the lexer, which will produce real Tokens with real
-    // Spans in place of `source` -- SourceManager and the Diagnostic
-    // renderer are both done. See include/vex/source_manager.hpp and
-    // include/vex/diagnostic_renderer.hpp.
+    // TODO(week 2): the parser, which will produce an AST from `tokens`.
     // ---------------------------------------------------------------
 
-    std::cout << "vex: read " << source.size() << " bytes from " << argv[1]
-              << " (no compiler yet)\n";
+    std::cout << "vex: " << tokens.size() << " tokens from " << argv[1] << " (no parser yet)\n";
     return 0;
 }

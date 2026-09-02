@@ -86,9 +86,9 @@ Both are miserable to retrofit and cheap to do upfront.
 
 ~~2. `Diagnostic` + its renderer — carets, spans, secondary labels. Prove it with a *hand-constructed* fake error before any lexer exists.~~ — **done.**
 
-Remaining:
+~~3. The lexer — now just a source of real spans to feed the renderer.~~ — **done.**
 
-3. **The lexer** — now just a source of real spans to feed the renderer.
+Week 1 is complete: `examples/fib.vx` and `tests/smoke/hello.vx` both tokenise clean, and `tests/lex/bad_char.vx` is a deliberately bad character rendering a properly placed caret end to end.
 
 Doing 2 before 3 is deliberate. If you can render a caret under a hardcoded span, the hard part of the diagnostics work is finished and the lexer becomes an easy win rather than two unfinished things at once.
 
