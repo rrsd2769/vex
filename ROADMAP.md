@@ -82,9 +82,10 @@ Both are miserable to retrofit and cheap to do upfront.
 
 ~~CMake + Ninja skeleton, `git init`, golden-file test harness~~ — **done, scaffolded.**
 
+~~1. `SourceManager` — owns the file text; converts byte offsets to line/column.~~ — **done.**
+
 Remaining, and **in this order**:
 
-1. **`SourceManager`** — owns the file text; converts byte offsets to line/column.
 2. **`Diagnostic` + its renderer** — carets, spans, secondary labels. Prove it with a *hand-constructed* fake error before any lexer exists.
 3. **The lexer** — now just a source of real spans to feed the renderer.
 

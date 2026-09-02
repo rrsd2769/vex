@@ -28,8 +28,9 @@ int main(int argc, char** argv) {
     const std::string source = buf.str();
 
     // ---------------------------------------------------------------
-    // TODO(week 1): SourceManager owns `source` and maps offsets to
-    // line/column. Then the lexer. Then everything else.
+    // TODO(week 1): Diagnostic + renderer next, proven against a
+    // hand-constructed fake error (SourceManager is done -- see
+    // include/vex/source_manager.hpp). Then the lexer.
     // ---------------------------------------------------------------
 
     std::cout << "vex: read " << source.size() << " bytes from " << argv[1]
