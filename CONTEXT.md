@@ -81,6 +81,16 @@ _Avoid_: binding, entry, identifier (for the bound thing)
 A region of the program over which a set of Symbols is visible.
 _Avoid_: environment, frame, context
 
+**Type**:
+What a Symbol or an expression's value is checked against: one of the
+primitive types (`int`, `float`, `bool`, `string`), a struct referenced by
+name, or the checker-internal `Unknown` sentinel meaning "already reported,
+or not yet checkable" -- never a real value's type, and never itself the
+source of a mismatch diagnostic, so one bad subexpression doesn't cascade
+into a wall of downstream errors.
+_Avoid_: kind (for this meaning -- TokenKind and ExprNode's variant are
+unrelated "kinds")
+
 ## Runtime
 
 **Constant**:

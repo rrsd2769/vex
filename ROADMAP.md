@@ -115,9 +115,12 @@ Week 3 is complete: `examples/fib.vx` parses whole, `main.cpp` now runs source a
 **Done when:** ~~a file with three separate syntax errors reports all three, not just the first.~~
 
 ### Week 4 — Type checker: core
-Symbol table with lexical scoping, type representation, expression typing, `let`/`var` inference and mutability enforcement.
 
-**Done when:** type errors in expressions are caught with accurate spans on the *offending operand*, not on the whole statement.
+~~Symbol table with lexical scoping, type representation, expression typing, `let`/`var` inference and mutability enforcement.~~ — **done.**
+
+Week 4 is complete: `examples/fib.vx` type-checks clean end to end through `main.cpp`, and `tests/type/type_errors.vx` proves three independent type errors (a `let`/init mismatch, an assignment to an immutable variable, and a non-bool `if` condition) are all reported with a caret on the specific offending operand, not the enclosing statement. Function-call and array-index checking are explicitly deferred to week 5 — see `include/vex/type_checker.hpp`'s header comment for exactly what that means this week.
+
+**Done when:** ~~type errors in expressions are caught with accurate spans on the *offending operand*, not on the whole statement.~~
 
 ### Week 5 — Type checker: completion and diagnostics polish
 Function signature checking (arity, argument types, return paths), struct field access, array indexing, and definite-return analysis.

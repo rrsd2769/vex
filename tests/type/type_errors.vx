@@ -1,0 +1,19 @@
+// Three independent type errors across three functions, in different
+// checks (var-decl mismatch, immutable assignment, bad condition type) --
+// proves the checker doesn't stop at the first one, and doesn't cascade a
+// second diagnostic out of the first bad expression.
+
+fn bad_var_decl() {
+    let x: int = "hello";
+}
+
+fn bad_assign() {
+    let y = 1;
+    y = 2;
+}
+
+fn bad_condition() {
+    if 5 {
+        return;
+    }
+}

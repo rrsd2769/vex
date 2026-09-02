@@ -1,1 +1,1 @@
-vex: 1 top-level item(s) from tests/smoke/hello.vx (no type checker yet)
+vex: 1 top-level item(s) from tests/smoke/hello.vx type-check OK (no bytecode compiler yet)

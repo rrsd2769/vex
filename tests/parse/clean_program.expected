@@ -1,1 +1,1 @@
-vex: 3 top-level item(s) from tests/parse/clean_program.vx (no type checker yet)
+vex: 3 top-level item(s) from tests/parse/clean_program.vx type-check OK (no bytecode compiler yet)

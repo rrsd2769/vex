@@ -1,0 +1,15 @@
+error: cannot assign value of type `string` to variable of type `int`
+  --> tests/type/type_errors.vx:7:18
+  |
+7 |     let x: int = "hello";
+  |                  ^^^^^^^ this is `string`
+error: cannot assign to immutable variable `y`
+  --> tests/type/type_errors.vx:12:5
+   |
+12 |     y = 2;
+   |     ^ declared with `let`, not `var`
+error: if condition must be of type `bool`, found `int`
+  --> tests/type/type_errors.vx:16:8
+   |
+16 |     if 5 {
+   |        ^ this is `int`
