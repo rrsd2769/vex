@@ -1,0 +1,11 @@
+// A tight while loop, no calls -- isolates dispatch-loop and local-slot
+// read/write overhead from Call/Return cost (fib.vx covers that side).
+fn main() {
+    var total = 0;
+    var i = 0;
+    while i < 50000000 {
+        total = total + i;
+        i = i + 1;
+    }
+    print(total);
+}

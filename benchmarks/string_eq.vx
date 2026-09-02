@@ -1,0 +1,22 @@
+// The language has no runtime string construction (no `+` concatenation,
+// no interpolation -- see value.hpp), so "string work" here means what the
+// VM actually does with strings: resolve a constant into the Arena and
+// compare content via Eq. Every iteration re-declares three string locals
+// and does two equality checks, one always true and one always false.
+fn main() {
+    var count = 0;
+    var i = 0;
+    while i < 2000000 {
+        var a = "benchmark";
+        var b = "benchmark";
+        var c = "other";
+        if a == b {
+            count = count + 1;
+        }
+        if a == c {
+            count = count + 1;
+        }
+        i = i + 1;
+    }
+    print(count);
+}

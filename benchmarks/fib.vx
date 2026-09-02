@@ -1,0 +1,11 @@
+// Recursive fib(30) -- ~2.7M calls, almost pure Call/Return overhead.
+// No loop, no arrays: isolates call-frame push/pop cost from everything
+// else the VM does.
+fn fib(n: int) -> int {
+    if n < 2 { return n; }
+    return fib(n - 1) + fib(n - 2);
+}
+
+fn main() {
+    print(fib(30));
+}
