@@ -1,0 +1,15 @@
+fn broken_missing_operand() {
+    let x = ;
+}
+
+fn broken_missing_semicolon() {
+    return 1
+}
+
+fn broken_bad_name() {
+    let 5 = 3;
+}
+
+fn fine() {
+    return 42;
+}

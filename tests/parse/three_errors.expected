@@ -1,0 +1,15 @@
+error: expected an expression, found `;`
+  --> tests/parse/three_errors.vx:2:13
+  |
+2 |     let x = ;
+  |             ^ unexpected
+error: expected `;` after return, found `}`
+  --> tests/parse/three_errors.vx:7:1
+  |
+7 | }
+  | ^ unexpected
+error: expected a variable name, found integer literal
+  --> tests/parse/three_errors.vx:10:9
+   |
+10 |     let 5 = 3;
+   |         ^ unexpected

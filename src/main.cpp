@@ -12,6 +12,7 @@
 
 #include "vex/diagnostic_renderer.hpp"
 #include "vex/lexer.hpp"
+#include "vex/parser.hpp"
 #include "vex/source_manager.hpp"
 #include "vex/token.hpp"
 
@@ -41,10 +42,21 @@ int main(int argc, char** argv) {
         return 65;  // EX_DATAERR
     }
 
+    vex::Parser parser(std::move(tokens), source);
+    vex::Program program = parser.parse_program();
+
+    if (!parser.diagnostics().empty()) {
+        for (const vex::Diagnostic& diagnostic : parser.diagnostics()) {
+            std::cerr << vex::render_diagnostic(diagnostic, source);
+        }
+        return 65;  // EX_DATAERR
+    }
+
     // ---------------------------------------------------------------
-    // TODO(week 2): the parser, which will produce an AST from `tokens`.
+    // TODO(week 4): the type checker, which will check `program`.
     // ---------------------------------------------------------------
 
-    std::cout << "vex: " << tokens.size() << " tokens from " << argv[1] << " (no parser yet)\n";
+    std::cout << "vex: " << program.items.size() << " top-level item(s) from " << argv[1]
+               << " (no type checker yet)\n";
     return 0;
 }

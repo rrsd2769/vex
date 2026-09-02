@@ -1,1 +1,1 @@
-vex: 14 tokens from tests/smoke/hello.vx (no parser yet)
+vex: 1 top-level item(s) from tests/smoke/hello.vx (no type checker yet)

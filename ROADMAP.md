@@ -105,11 +105,14 @@ Week 2 is complete: `1 + 2 * (3 - 4)` parses to `(+ 1 (* 2 (- 3 4)))`, verified 
 **Done when:** ~~`1 + 2 * (3 - 4)` parses to a correctly shaped tree, verified by an AST-dumping test.~~
 
 ### Week 3 — Parser: statements, and error recovery
-Declarations, assignment, `if`/`while`/`for`/`return`, blocks, function declarations, struct declarations.
 
-Then **error recovery**: on a parse error, don't die — record the diagnostic, synchronise to the next statement boundary, and keep going, so one run reports many errors.
+~~Declarations, assignment, `if`/`while`/`for`/`return`, blocks, function declarations, struct declarations.~~ — **done.**
 
-**Done when:** a file with three separate syntax errors reports all three, not just the first.
+~~Then **error recovery**: on a parse error, don't die — record the diagnostic, synchronise to the next statement boundary, and keep going, so one run reports many errors.~~ — **done.**
+
+Week 3 is complete: `examples/fib.vx` parses whole, `main.cpp` now runs source all the way through the parser, and `tests/parse/three_errors.vx` proves the recovery bar end to end — three separate syntax errors in one file, all three reported, no cascade.
+
+**Done when:** ~~a file with three separate syntax errors reports all three, not just the first.~~
 
 ### Week 4 — Type checker: core
 Symbol table with lexical scoping, type representation, expression typing, `let`/`var` inference and mutability enforcement.
