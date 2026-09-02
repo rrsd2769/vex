@@ -1,0 +1,9 @@
+// Companion to index_out_of_bounds.vx: that one's index is a literal, so
+// the checker catches it at compile time (exit 65). This one's index is a
+// variable, so the checker can't -- it only surfaces once the VM actually
+// runs the program (exit 70), through the same Diagnostic/renderer.
+fn main() {
+    var scores = [10, 20, 30];
+    var i = 5;
+    var x = scores[i];
+}

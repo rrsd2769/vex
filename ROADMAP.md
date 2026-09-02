@@ -192,9 +192,26 @@ silently comparing only the first slot).
 **Done when:** ~~`fib(30)` prints the right number, and every example program runs end to end. **This is the week the project becomes real.**~~
 
 ### Week 8 — Benchmarks, docs, buffer
-Time the VM against CPython on `fib`, loops, and string work — you want a number. README with the pipeline diagram, an error-message showcase, and the design-decision table. A short demo GIF.
+~~Time the VM against CPython on `fib`, loops, and string work — you want a number. README with the pipeline diagram, an error-message showcase, and the design-decision table. A short demo GIF.~~ — **done.**
+
+Week 8 is complete, and with it the whole 8-week core: `benchmarks/` times
+`vex` against CPython 3.14 on `fib`, a 50M-iteration loop, and 2M string
+equality checks (`benchmarks/RESULTS.md`, vex wins both loop-shaped
+benchmarks and loses the recursive one to CPython 3.14's new tail-calling
+interpreter, reported honestly rather than picked to flatter). `README.md`
+carries the pipeline diagram, three real diagnostic examples pulled from
+actual output (a did-you-mean typo suggestion, a secondary-span type
+mismatch, and a runtime out-of-bounds error, the last of which needed a
+new golden test, `tests/errors/runtime_index_out_of_bounds.vx`, since
+nothing before this week exercised a *dynamic* index at the golden-file
+level), and a design-decision table sourced from each stage's own header
+comments. `demo/vex-demo.gif` (rendered from `demo/vex-demo.tape` via
+`vhs`, regenerate with `vhs demo/vex-demo.tape`) runs the same four
+commands live in a terminal.
 
 Treat this as buffer too. Weeks 3 and 5 tend to overrun.
+
+**Done when:** ~~a number exists for `fib`, loops, and string work against CPython; the README has a pipeline diagram, a real error-message showcase, and a design-decision table; and a short demo GIF exists.~~
 
 ---
 

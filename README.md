@@ -9,6 +9,8 @@ beyond the standard library.
 source.vx -> lexer -> parser -> AST -> type checker -> bytecode -> VM -> output
 ```
 
+![vex running fib.vx, a typo diagnostic, a multi-error type-check run, and a runtime out-of-bounds error](demo/vex-demo.gif)
+
 ## Why this exists
 
 Most small compilers stop at `parse error at line 12`. The goal here was
@@ -169,9 +171,11 @@ overhead. Reproduce with `python3 benchmarks/run.py` after building Release.
 ./build/vex_unit_tests         # unit tests for individual stages
 ```
 
-15 golden-file programs cover the pipeline end to end, including three
+16 golden-file programs cover the pipeline end to end, including several
 deliberately bad ones (a bad character, three syntax errors in one file,
-three independent type errors) that prove error recovery actually recovers.
+three independent type errors, and both a compile-time and a runtime
+out-of-bounds index) that prove error recovery actually recovers and that
+runtime diagnostics use the same renderer as compile-time ones.
 127 unit tests assert against individual stages directly, including a
 struct/array-equality compiler limitation and a stack-use-after-scope bug
 that ASan caught in the test suite itself before it could hide anywhere
@@ -207,6 +211,7 @@ tests/
   lex/ parse/ type/ bytecode/ errors/ smoke/
                 golden-file .vx programs plus their expected output
 benchmarks/     vex vs. CPython programs, a runner, and RESULTS.md
+demo/           the README's demo GIF and the vhs tape script that renders it
 examples/       fib.vx, the project's own "done when" target program
 CONTEXT.md      glossary fixing the vocabulary used across the pipeline
 ROADMAP.md      the week-by-week plan this project was built against

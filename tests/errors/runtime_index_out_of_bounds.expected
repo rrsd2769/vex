@@ -1,0 +1,5 @@
+error: array index 5 out of bounds for array of size 3
+  --> tests/errors/runtime_index_out_of_bounds.vx:8:13
+  |
+8 |     var x = scores[i];
+  |             ^^^^^^^^^ here
