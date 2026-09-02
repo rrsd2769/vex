@@ -8,11 +8,13 @@
 void run_source_manager_tests();
 void run_diagnostic_renderer_tests();
 void run_lexer_tests();
+void run_parser_tests();
 
 int main() {
     run_source_manager_tests();
     run_diagnostic_renderer_tests();
     run_lexer_tests();
+    run_parser_tests();
 
     if (vex_test::g_failures > 0) {
         std::cerr << vex_test::g_failures << " test(s) failed\n";

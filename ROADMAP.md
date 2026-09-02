@@ -97,9 +97,12 @@ Doing 2 before 3 is deliberate. If you can render a caret under a hardcoded span
 **Done when:** the lexer tokenises every example file, and a deliberately bad character produces a properly rendered error with a caret in the right column.
 
 ### Week 2 — Parser: expressions
-Recursive descent with precedence climbing for binary operators. AST node definitions with spans. Unary ops, calls, indexing, grouping, literals.
 
-**Done when:** `1 + 2 * (3 - 4)` parses to a correctly shaped tree, verified by an AST-dumping test.
+~~Recursive descent with precedence climbing for binary operators. AST node definitions with spans. Unary ops, calls, indexing, grouping, literals.~~ — **done.**
+
+Week 2 is complete: `1 + 2 * (3 - 4)` parses to `(+ 1 (* 2 (- 3 4)))`, verified by `dump_expr()` in `tests/unit/parser_test.cpp`, alongside the full precedence ladder, associativity, unary, calls, indexing, grouping, and all four literal kinds.
+
+**Done when:** ~~`1 + 2 * (3 - 4)` parses to a correctly shaped tree, verified by an AST-dumping test.~~
 
 ### Week 3 — Parser: statements, and error recovery
 Declarations, assignment, `if`/`while`/`for`/`return`, blocks, function declarations, struct declarations.
